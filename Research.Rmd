@@ -1,0 +1,60 @@
+
+
+
+```{r}
+#To efficiently show bias-variance trade-offs, we need to choose the parameters that are not very complex.
+#First, I tried to make dataset generally, without shiny so that it is easier to understand
+#For linear model:
+library(tidyverse)
+set.seed(6.24)
+n <- 250
+a <- 5
+b <- 0.5
+epsilon <- 4 #noise level
+
+x <- runif(n, min = 30, max = 60)
+
+# Generate noise (error term)
+e1 <- rnorm(n, mean = 0, sd = epsilon)
+e2 <- rnorm(n, mean = 0, sd = epsilon)
+e3 <- rnorm(n, mean = 0, sd = epsilon)
+e4 <- rnorm(n, mean = 0, sd = epsilon)
+e5 <- rnorm(n, mean = 0, sd = epsilon)
+e6 <- rnorm(n, mean = 0, sd = epsilon)
+e7 <- rnorm(n, mean = 0, sd = epsilon)
+e8 <- rnorm(n, mean = 0, sd = epsilon)
+e9 <- rnorm(n, mean = 0, sd = epsilon)
+e10 <- rnorm(n, mean = 0, sd = epsilon)
+
+#True function without noise:
+fx = (b*x) + a #in form of y = mx+c 
+
+#function with noise added:
+y1 = fx+e1
+y2 = fx+e2
+y3 = fx+e3
+y4 = fx+e4
+y5 = fx+e5
+y6 = fx+e6
+y7 = fx+e7
+y8 = fx+e8
+y9 = fx+e9
+y10 = fx+e10
+
+#convert in data frame
+toy_data <- data.frame(
+  inp = x,
+  true_form = fx,
+  response1 = y1,
+  response2 = y2,
+  response3 = y3,
+  response4 = y4,
+  response5 = y5,
+  response6 = y6,
+  response7 = y7,
+  response8 = y8,
+  response9 = y9,
+  response10 = y10
+)
+
+```
