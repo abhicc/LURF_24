@@ -1,104 +1,328 @@
 library(tidyverse)
-library(caret)
 library(shiny)
 
 ui <- fluidPage(
   
   # Application title
-  titlePanel("K-Nearest Neighbors"),
+  titlePanel("Model Bias and Variance"),
   
-  sidebarLayout(
-    sidebarPanel(
+  fluidRow(
     
-    # column(3,
-           # selectInput(inputId = "true_model",
-           #             label = "Select a 'true' model",
-           #             choices = c("Linear", "Non-linear"),
-           #             selected = "Linear"),
+    column(3,
+           selectInput(inputId = "true_model",
+                       label = "Select a 'true' model",
+                       choices = c("Linear", "Non-linear"),
+                       selected = "Linear")),
     
-    # column(3,
-           # sliderInput(inputId = "epsilon",
-           #             label = "Select variability:",
-           #             min = 0,
-           #             max = 5,
-           #             value = 1,
-           #             step = 0.5),
-           # 
-    # column(3,
-           sliderInput(inputId = "k",
-                       label = "Select a value of K:",
-                       min = 1,
-                       max = 97,
-                       value = 10,
-                       step = 1,
-                       animate = TRUE)),
+    column(3,
+           sliderInput(inputId = "epsilon",
+                       label = "Select variability",
+                       min = 0,
+                       max = 5,
+                       value = 1,
+                       step = 0.5)),
     
-    # column(3, 
-           # plotOutput("myLegend"))
+    column(3,
+           sliderInput(inputId = "flex",
+                       label = "Select flexibility",
+                       min = 0.1,
+                       max = 10,
+                       value = 1,
+                       step = 1)),
     
+    
+    column(3, plotOutput("myLegend"))
+    
+    
+    
+  ),
   
+  fluidRow(
+    column(4, plotOutput("truePlot")),
+    column(4, plotOutput("Plot1")),
+    column(4, plotOutput("Plot2"))
+  ),
   
-  mainPanel(
-    # column(4, 
-           # plotOutput("truePlot"),
-    # column(4,
-           plotOutput("observedPlot")
-  ))
+  fluidRow(
+    column(4, plotOutput("Plot3")),
+    column(4, plotOutput("Plot4")),
+    column(4, plotOutput("Plot5"))
+  )
 )
 
 
 server <- function(input, output) {
   
-  output$observedPlot <- renderPlot({
+  
+  a <- 3
+  b <- 0.87
+  c <- 0.5
+  
+  df <- reactive({
     
-    outlets <- readRDS("outlets.rds")   # load dataset
+    if(input$true_model == "Linear")
+    {
+      set.seed(208)
+      
+      # simulate data
+      x <- runif(n = 100, min = 20, max = 40)   # input/predictor
+      
+      e1 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e2 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e3 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e4 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e5 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      
+      fx <- a + (b * x)  # true function
+      
+      y1 <- fx + e1    # observed responses
+      y2 <- fx + e2    # observed responses
+      y3 <- fx + e3    # observed responses
+      y4 <- fx + e4    # observed responses
+      y5 <- fx + e5    # observed responses
+      
+      toy_data <- data.frame(inp = x, true_form = fx, response1 = y1, response2 = y2, response3 = y3, response4 = y4, response5 = y5)  
+    }
     
-    kval <- as.numeric(input$k)
+    else 
+    {
+      set.seed(208)
+      
+      # simulate data
+      x <- runif(n = 100, min = 20, max = 40)   # input/predictor
+      
+      e1 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e2 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e3 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e4 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      e5 <- rnorm(n = 100, mean = 0, sd = input$epsilon)  # error
+      
+      fx <- a + (b * sqrt(x)) + (c * sin(x))   # true function
+      
+      y1 <- fx + e1    # observed responses
+      y2 <- fx + e2    # observed responses
+      y3 <- fx + e3    # observed responses
+      y4 <- fx + e4    # observed responses
+      y5 <- fx + e5    # observed responses
+      
+      toy_data <- data.frame(inp = x, true_form = fx, response1 = y1, response2 = y2, response3 = y3, response4 = y4, response5 = y5)  
+    }
     
-    knnfit <- knnreg(profit ~ population, data = outlets, k = kval)
+    return(toy_data)
+  })
+  
+  
+  output$truePlot <- renderPlot({
     
-    # predict(object = __________, newdata = data.frame(population = __________))  # 1-nn prediction
-    # 
-    # slrfit <- lm(profit ~ population, data = outlets)   # fit the SLR model
+    if(input$true_model == "Linear")
+    {
+      ggplot(data = df(), aes(x = inp, y = true_form)) + 
+        geom_point() + 
+        labs(title = "True relationship without error", y = "f(x)", x = "x") +
+        scale_y_continuous(limits = c(15, 40)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
     
-    pop_seq <- seq(min(outlets$population, na.rm = TRUE), max(outlets$population, na.rm = TRUE), 0.01)
-    
-    # obtain predictions for all training data points
-    # knn_1 <- predict(knnfit1, newdata = data.frame(population = min(outlets$population, na.rm = TRUE):max(outlets$population, na.rm = TRUE)))
-    # knn_1 <- predict(knnfit1, newdata = data.frame(population = pop_seq))
-    preds <- predict(knnfit, newdata = data.frame(population = pop_seq))
-    # knn_5 <- predict(knnfit5, newdata = data.frame(population = min(outlets$population, na.rm = TRUE):max(outlets$population, na.rm = TRUE)))
-    # knn_5 <- predict(knnfit5, newdata = data.frame(population = pop_seq))
-    # p <-  predict(slrfit, newdata = data.frame(population = min(outlets$population, na.rm = TRUE):max(outlets$population, na.rm = TRUE)))
-    # p <-  predict(slrfit, newdata = data.frame(population = pop_seq))
-    
-    # column bind original data with predicted values
-    # ames1 <- outlets %>% select(profit, population) %>% filter(!is.na(population))
-    # predictions <- data.frame(population = min(outlets$population, na.rm = TRUE):max(outlets$population, na.rm = TRUE),
-    # linear = p, knn_1, knn_5)
-    # predictions <- data.frame(population = pop_seq,
-                              # linear = p, knn_1, knn_5)
-    predictions <- data.frame(population = pop_seq, predictions = preds)
-    
-    # plot the three models
-    # ggplot(data = outlets, aes(x = population, y = profit)) +
-    #   geom_point() +
-    #   geom_line(data = predictions, aes(x = population, y = knn_1), color = "cyan", linetype = "dashed", linewidth = 1) +   # 1-nn regression
-    #   geom_line(data = predictions, aes(x = population, y = knn_5), color = "red", linetype = "dotted", linewidth = 1) +   # 5-nn regression
-    #   geom_line(data = predictions, aes(x = population, y = linear), color = "blue", linewidth = 1) +
-    #   theme_bw()
-    
-    ggplot(data = outlets, aes(x = population, y = profit)) +
-      geom_point() +
-      geom_line(data = predictions, aes(x = population, y = predictions), color = "red", linetype = "dashed", linewidth = 1) +   # 1-nn regression
-      # geom_line(data = predictions, aes(x = population, y = knn_5), color = "red", linetype = "dotted", linewidth = 1) +   # 5-nn regression
-      geom_smooth(method = "lm", se = FALSE, color = "blue") +
-      theme_bw()
+    else
+    {
+      ggplot(data = df(), aes(x = inp, y = true_form)) + 
+        geom_point() + 
+        labs(title = "True relationship without error", y = "f(x)", x = "x") +
+        scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
     
   })
   
   
-
+  
+  output$Plot1 <- renderPlot({
+    
+    if(input$true_model == "Linear")
+    {
+      ggplot(data = df(), aes(x = inp, y = response1)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*x), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 1", y = "y", x = "x") +
+        scale_y_continuous(limits = c(15, 40)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+    else
+    {
+      ggplot(data = df(), aes(x = inp, y = response1)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*sqrt(x))+(c*sin(x)), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 1", y = "y", x = "x") +
+        scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+  })
+  
+  
+  
+  output$Plot2 <- renderPlot({
+    
+    if(input$true_model == "Linear")
+    {
+      ggplot(data = df(), aes(x = inp, y = response2)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*x), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 2", y = "y", x = "x") +
+        scale_y_continuous(limits = c(15, 40)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+    else
+    {
+      ggplot(data = df(), aes(x = inp, y = response2)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*sqrt(x))+(c*sin(x)), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 2", y = "y", x = "x") +
+        scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+  })
+  
+  
+  
+  output$Plot3 <- renderPlot({
+    
+    if(input$true_model == "Linear")
+    {
+      ggplot(data = df(), aes(x = inp, y = response3)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*x), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 3", y = "y", x = "x") +
+        scale_y_continuous(limits = c(15, 40)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+    else
+    {
+      ggplot(data = df(), aes(x = inp, y = response3)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*sqrt(x))+(c*sin(x)), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 3", y = "y", x = "x") +
+        scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+  })
+  
+  
+  
+  output$Plot4 <- renderPlot({
+    
+    if(input$true_model == "Linear")
+    {
+      ggplot(data = df(), aes(x = inp, y = response4)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*x), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 4", y = "y", x = "x") +
+        scale_y_continuous(limits = c(15, 40)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+    else
+    {
+      ggplot(data = df(), aes(x = inp, y = response4)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*sqrt(x))+(c*sin(x)), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 4", y = "y", x = "x") +
+        scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+  })
+  
+  
+  
+  output$Plot5 <- renderPlot({
+    
+    if(input$true_model == "Linear")
+    {
+      ggplot(data = df(), aes(x = inp, y = response5)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*x), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 5", y = "y", x = "x") +
+        scale_y_continuous(limits = c(15, 40)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+    else
+    {
+      ggplot(data = df(), aes(x = inp, y = response5)) + 
+        geom_point() +
+        geom_function(fun = function(x) a+(b*sqrt(x))+(c*sin(x)), aes(color = "true model"), linewidth = 1.5, show.legend = FALSE) +
+        geom_smooth(method = "lm", se = FALSE, aes(color = "linear model"), show.legend = FALSE) +
+        # geom_smooth(formula = y ~ sqrt(x) + sin(x), se = FALSE, aes(color = "non-linear model")) +
+        geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE) +
+        scale_color_manual(values = c("true model" = "red", "linear model" = "blue", "non-linear model" = "green")) +
+        # theme(legend.title = element_blank()) +
+        labs(title = "Training Data 5", y = "y", x = "x") +
+        scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    }
+    
+  })
+  
+  
+  
+  output$myLegend <- renderPlot({
+    par(mai=rep(0.01,4))
+    # plot(NULL ,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=c(0,.1), ylim=c(0,.1))
+    legend("center", legend=c("true model","linear model", "non-linear model"), lty=c(1,1,1), lwd=c(4,4,4), col=c("red", "darkblue", "green"))
+  },height=50)
+  
+  
   
   
 }
