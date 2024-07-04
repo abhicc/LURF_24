@@ -352,6 +352,7 @@ server <- function(input, output) {
         predictions[, i] <- predict(model, newdata = data.frame(df_data$inp))
       }
     }
+  })
     
   
   output$myLegend <- renderPlot({
@@ -393,6 +394,7 @@ server <- function(input, output) {
 
 # Run the application
 shinyApp(ui = ui, server = server) 
+
 
 
 
