@@ -381,66 +381,84 @@ server <- function(input, output) {
     # Get the current value of reactive data frame df
     df_data <- df()
     
-    # Initialize a matrix to store predictions
-    predictions <- matrix(NA, nrow = 100, ncol = 10)
-    
-    # Fit models and obtain predictions using a for loop
-    if (input$model_name == "Linear") {
-      for (i in 1:10) {
-        model <- lm(df_data[, i + 2] ~ df_data$inp, data = df_data)
-        predictions[, i] <- predict(model, newdata = data.frame(df_data$inp))
-      }
-    } else if (input$model_name == "Non-Linear") {
-      for (i in 1:10) {
-        model <- loess(df_data[, i + 2] ~ df_data$inp, span = 1/input$flex, data = df_data)
-        predictions[, i] <- predict(model, newdata = data.frame(df_data$inp))
-      }
-    } else if (input$model_name == "Polynomial") {
-      for (i in 1:10) {
-        model <- lm(df_data[, i + 2] ~ poly(df_data$inp, input$degree), data = df_data)
-        predictions[, i] <- predict(model, newdata = data.frame(df_data$inp))
-      }
-    }
-    
-    
-    # Calculate average predictions
-    avg_predictions <- rowMeans(predictions)
-    
-    # Calculate true form based on your data (replace with appropriate value)
-    true_form <- df_data$true_form
-    
-    # Calculate bias
-    bias <- avg_predictions - true_form
-    
-    # Calculate squared bias
-    squared_bias <- bias^2
-    
-    # Calculate overall squared bias
-    overall_squared_bias <- mean(squared_bias)
-    
-    # Calculate variances of predictions
-    prediction_vars <- apply(predictions, 1, var)
-    
-    # Calculate overall variance
-    overall_variance <- mean(prediction_vars)
-    
-    # Create a data frame for bias and variance
+    # Initialize a data frame to store bias and variance for different complexities
     metrics <- data.frame(
-      Metric = c("Bias", "Variance"),
-      Value = c(overall_squared_bias, overall_variance)
+      Complexity = numeric(),
+      Metric = character(),
+      Value = numeric()
     )
     
-    # Plotting code with constant scale
-    ggplot(metrics, aes(x = Metric, y = Value, fill = Metric)) +
+    # Define the range of complexities
+    if (input$model_name == "Linear") {
+      complexities <- 1  # Linear model has no complexity parameter
+    } else if (input$model_name == "Non-Linear") {
+      complexities <- seq(0.1, 10, by = 0.9)
+    } else if (input$model_name == "Polynomial") {
+      complexities <- 1:10
+    }
+    
+    # Loop over each complexity level
+    for (complexity in complexities) {
+      predictions <- matrix(NA, nrow = 100, ncol = 10)
+      
+      # Fit models and obtain predictions
+      if (input$model_name == "Linear") {
+        for (i in 1:10) {
+          model <- lm(df_data[, i + 2] ~ df_data$inp, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_data$inp[1:100]))
+        }
+      } else if (input$model_name == "Non-Linear") {
+        for (i in 1:10) {
+          model <- loess(df_data[, i + 2] ~ df_data$inp, span = 1/complexity, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_data$inp[1:100]))
+        }
+      } else if (input$model_name == "Polynomial") {
+        for (i in 1:10) {
+          model <- lm(df_data[, i + 2] ~ poly(df_data$inp, complexity), data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_data$inp[1:100]))
+        }
+      }
+      
+      # Calculate average predictions
+      avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+      
+      # Calculate true form based on your data (replace with appropriate value)
+      true_form <- df_data$true_form[1:100]
+      
+      # Calculate bias
+      bias <- avg_predictions - true_form
+      
+      # Calculate squared bias
+      squared_bias <- bias^2
+      
+      # Calculate overall squared bias
+      overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+      
+      # Calculate variances of predictions
+      prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+      
+      # Calculate overall variance
+      overall_variance <- mean(prediction_vars, na.rm = TRUE)
+      
+      # Store metrics for current complexity level
+      metrics <- rbind(
+        metrics,
+        data.frame(Complexity = complexity, Metric = "Bias", Value = overall_squared_bias),
+        data.frame(Complexity = complexity, Metric = "Variance", Value = overall_variance)
+      )
+    }
+    
+    # Plotting code with complexity on the x-axis
+    ggplot(metrics, aes(x = as.factor(Complexity), y = Value, fill = Metric)) +
       geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8) +
       labs(
-        title = "Bias and Variance",
-        x = "Metrics",
+        title = "Bias and Variance Across Different Complexity Levels",
+        x = "Complexity",
         y = "Value"
       ) +
       theme_minimal() +
-      scale_y_continuous(limits = c(0, max(metrics$Value) * 1.2))  # Set limits for y-axis 
-    
+      scale_y_continuous(limits = c(0, max(metrics$Value, na.rm = TRUE) * 1.2)) +
+      scale_fill_manual(values = c("Bias" = "blue", "Variance" = "red"))
   })
   
 
