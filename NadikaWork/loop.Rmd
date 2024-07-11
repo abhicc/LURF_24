@@ -17,13 +17,8 @@ responses <- fx + errors
 
 # Create a data frame
 training_data <- data.frame(inp = x, true_form = fx, responses)
-# FROM NOW, WE CAN CALL THIS DATASET 'TRAINING_DATA' SINCE WE ARE GOING TO BUILD OUR MODELS BASED ON THESE
 
-# GENERATE A 'TEST_DATA' WITH NEW X'S, AND CORRESPONDING FX'S AND Y'S
-# JUST ONE SET OF DATA WITH SAY 100 OBSERVATIONS (SAME CODE AS IN LINES 8-16, EXCEPT YOU WOULD REPLICATE ONLY ONCE, PROBABLY NEED TO USE A DIFFERENT SEED FOR THAT)
-# SEE COMMENTS ON LINES 44, 48, 50, 54-55, 71
-
-set.seed(202) 
+set.seed(2025) 
 xtest <- runif(n = 100, min = 20, max = 40)   
 error_test <- rnorm(n = 100, mean = 0, sd = 2)
 fxtest <- a + (b * xtest)  # true function
@@ -85,10 +80,10 @@ print(bias_var_df)
 set.seed(2024) # Set seed for reproducibility
 
 # Simulate data
-x <- runif(n = 100, min = 20, max = 40)   # input/predictor
+x <- runif(n = 500, min = 20, max = 40)   # input/predictor
 
 # Generate 300 sets of errors
-errors <- replicate(300, rnorm(n = 500, mean = 0, sd = 2))  # error terms
+errors <- replicate(500, rnorm(n = 500, mean = 0, sd = 2))  # error terms
 a <- 3
 b <- 0.87
 fx <- a + (b * x)  # true function
@@ -148,7 +143,6 @@ for (d in degrees) {
 
 print(bias_var_df)
 
-#save files into a folder
 #calculate avg test error = bias_sq + variance + sq. of the noise being used i.e 2
 #MSE for training datasets, take average to find mean MSE (avg training error)
 #line plot for the two errors x = degree, y = MSE
