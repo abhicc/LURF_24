@@ -1,0 +1,171 @@
+
+
+
+```{r}
+set.seed(2024) # Set seed for reproducibility
+
+# Simulate data
+x <- runif(n = 100, min = 20, max = 40)   # input/predictor
+
+errors <- replicate(10, rnorm(n = 100, mean = 0, sd = 2))  # error terms
+a <- 3
+b <- 0.87
+fx <- a + (b * x)  # true function
+
+# Generate observed responses
+responses <- fx + errors
+
+# Create a data frame
+training_data <- data.frame(inp = x, true_form = fx, responses)
+
+set.seed(2025) 
+xtest <- runif(n = 100, min = 20, max = 40)   
+error_test <- rnorm(n = 100, mean = 0, sd = 2)
+fxtest <- a + (b * xtest)  # true function
+response_test <- fxtest + error_test
+
+# Create test data frame
+test_data <- data.frame(inp = xtest, true_form = fxtest, response = response_test)
+
+# Rename response columns for easier reference
+colnames(training_data)[3:12] <- paste0("response", 1:10)
+
+# Plot one of the data sets for visualization
+library(ggplot2)
+ggplot(data = training_data) + 
+  geom_point(aes(x = inp, y = response1)) +
+  labs(title = "Simulated Data", x = "Input", y = "Response")
+
+# Polynomial degrees to fit
+degrees <- c(1, 2, 3, 4)
+
+# Initialize a data frame to store bias and variance for each degree
+bias_var_df <- data.frame(degree = integer(), bias_sq = numeric(), variance = numeric())
+
+for (d in degrees) {
+  # Store predictions for each degree
+  preds <- matrix(nrow = 100, ncol = 10)
+  # IF YOU GENERATE OTHER THAN 100 TEST OBSERVATIONS, YOU WOULD NEED TO ADJUST THE nrow VALUE
+  
+  for (i in 1:10) {
+    model <- lm(training_data[[paste0("response", i)]] ~ poly(inp, degree = d, raw = TRUE), data = training_data)
+    # BUILD YOUR MODELS ON THE TRAINING DATA JUST AS YOU HAVE DONE HERE (NO CHANGES NEEDED)
+    preds[, i] <- predict(model, newdata = data.frame(inp = test_data$inp))
+    # NOW YOU WOULD PREDICT ON TEST DATA, CHANGE NEWDATA PIECE
+    
+  }
+  
+  # THE FOLLOWING CALCULATIONS OF E_y_hat AND V_y_hat REMAIN SAME
+  # THE TRUE FORM NOW NEEDS TO COME FROM THE TEST DATA WHILE CALCULATING bias_squared
+  # Calculate bias squared
+  E_y_hat <- apply(preds, 1, mean)
+  bias_squared <- (E_y_hat - test_data$true_form)^2
+  mean_bias_squared <- mean(bias_squared)
+  
+  # Calculate variance
+  V_y_hat <- apply(preds, 1, var)
+  mean_variance <- mean(V_y_hat)
+  
+  # Append results to data frame
+  bias_var_df <- rbind(bias_var_df, data.frame(degree = d, bias_sq = mean_bias_squared, variance = mean_variance))
+}
+
+print(bias_var_df)
+
+# SINCE YOU HAVE ALREADY AUTOMATED YOUR PROCESS USING A LOOP (GREAT JOB WITH THAT), CAN YOU NOW TRY WITH SAY 300 REPLICATED DATASETS INSTEAD OF 10? I WILL LET YOU THINK ABOUT WHAT NEEDS TO CHANGE FOR THAT
+
+```
+
+```{r}
+set.seed(2024) # Set seed for reproducibility
+
+# Simulate data
+x <- runif(n = 500, min = 20, max = 40)   # input/predictor
+
+# Generate 300 sets of errors
+errors <- replicate(500, rnorm(n = 500, mean = 0, sd = 2))  # error terms
+a <- 3
+b <- 0.87
+fx <- a + (b * x)  # true function
+
+# Generate observed responses
+responses <- fx + errors
+
+# Create a data frame
+training_data <- data.frame(inp = x, true_form = fx, responses)
+
+set.seed(2025) 
+xtest <- runif(n = 500, min = 20, max = 40)   
+error_test <- rnorm(n = 500, mean = 0, sd = 2)
+fxtest <- a + (b * xtest)  # true function
+response_test <- fxtest + error_test
+
+# Create test data frame
+test_data <- data.frame(inp = xtest, true_form = fxtest, response = response_test)
+
+# Rename response columns for easier reference
+colnames(training_data)[3:(3 + 299)] <- paste0("response", 1:300)
+
+# Plot one of the data sets for visualization
+library(ggplot2)
+ggplot(data = training_data) + 
+  geom_point(aes(x = inp, y = response1)) +
+  labs(title = "Simulated Data", x = "Input", y = "Response")
+
+# Polynomial degrees to fit
+degrees <- c(1, 2, 3, 4)
+
+# Initialize a data frame to store bias and variance for each degree
+bias_var_df <- data.frame(degree = integer(), bias_sq = numeric(), variance = numeric())
+
+for (d in degrees) {
+  # Store predictions for each degree
+  preds <- matrix(nrow = 100, ncol = 300)
+  for (i in 1:300) {
+    model <- lm(training_data[[paste0("response", i)]] ~ poly(inp, degree = d, raw = TRUE), data = training_data)
+    # Build models on the training data
+    test_preds[, i] <- predict(model, newdata = data.frame(inp = test_data$inp))
+    training_preds[, i] <- predict(model, newdata = data.frame(inp = training_data$inp))
+  }
+  
+  # Calculate bias squared
+  E_y_hat <- apply(preds, 1, mean)
+  bias_squared <- (E_y_hat - test_data$true_form)^2
+  mean_bias_squared <- mean(bias_squared)
+  
+  # Calculate variance
+  V_y_hat <- apply(preds, 1, var)
+  mean_variance <- mean(V_y_hat)
+  
+  # Append results to data frame
+  bias_var_df <- rbind(bias_var_df, data.frame(degree = d, bias_sq = mean_bias_squared, variance = mean_variance))
+}
+
+print(bias_var_df)
+
+#calculate avg test error = bias_sq + variance + sq. of the noise being used i.e 2
+#MSE for training datasets, take average to find mean MSE (avg training error)
+#line plot for the two errors x = degree, y = MSE
+# do it for fx <- a + (b * x^2) + (c * x^3) 
+#users can choose the number of training data points. 100, 400, 700, 1000
+#1 scatterplot of original data/ first replicated dataset, 2 bar graphs for bias and variance, line plot with errors with diff colors
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+
+# Set up the data for plotting
+bias_var_long <- pivot_longer(bias_var_df, cols = c("bias_sq", "variance"), names_to = "type", values_to = "value")
+
+# Plot the bar graph
+ggplot(bias_var_long, aes(x = factor(degree), y = value, fill = type)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Bias-Variance Tradeoff", x = "Polynomial Degree", y = "Value") +
+  scale_fill_manual(values = c("bias_sq" = "blue", "variance" = "red"), 
+                    labels = c("Bias Squared", "Variance")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
