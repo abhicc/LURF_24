@@ -134,7 +134,7 @@ for (d in degrees) {
   mean_variance <- mean(V_y_hat)
   
   # Calculate test MSE using the theoretical formula
-  test_mse <- mean_bias_squared + mean_variance + 2^2
+  test_mse <- mean_bias_squared + mean_variance + 2
   
   # Calculate mean training MSE
   mean_training_mse <- mean(training_mse_list)
