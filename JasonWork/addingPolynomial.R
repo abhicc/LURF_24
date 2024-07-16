@@ -29,6 +29,13 @@ ui <- fluidPage(
                        max = 8,
                        value = 1,
                        step = 0.5)),
+    column(2,
+           sliderInput(inputId = "num_ob",
+                       label = "Number of observations",
+                       min = 100,
+                       max = 500,
+                       value = 1,
+                       step = 50)),
     
     column(2,
            conditionalPanel(
@@ -107,7 +114,7 @@ server <- function(input, output) {
       set.seed(2024) #change to 2024
       
       #  Data set 1
-      x <- runif(n = 100, min = 20, max = 40)
+      x <- runif(n = input$num_ob, min = 20, max = 40)
       fx <- a + (b * x)
       toy_data <- generate_data(x, fx, input$epsilon)
       set.seed(2025)
@@ -122,7 +129,7 @@ server <- function(input, output) {
       set.seed(2024)
       
       # Data set 2
-      x <- runif(n = 100, min = 20, max = 40)
+      x <- runif(n = input$num_ob, min = 20, max = 40)
       fx <- a + (b * sqrt(x)) + (c * sin(x))
       toy_data <- generate_data(x, fx, input$epsilon)
       # Generate test data
@@ -138,7 +145,7 @@ server <- function(input, output) {
       set.seed(2024)
       
       # Data set 3
-      x <- runif(n = 100, min = -5, max = 5)
+      x <- runif(n = input$num_ob, min = -5, max = 5)
       fx <- a + (b * x^2) + (c * x^3)
       toy_data <- generate_data(x, fx, input$epsilon)  
       # Generate test data
@@ -260,18 +267,18 @@ server <- function(input, output) {
       # Fit models and obtain predictions
       if (input$model_name == "Linear") {
         for (i in 1:100) {
-          model <- lm(df_data[, i + 2] ~ df_data$inp, data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp[1:1000]))#SHOULD BE FROM TEST 
+          model <- lm(df_data[, i + 2] ~ inp, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))#SHOULD BE FROM TEST 
         }
       } else if (input$model_name == "Non-Linear") {
         for (i in 1:100) {
-          model <- loess(df_data[, i + 2] ~ df_data$inp, span = 1/complexity, data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp[1:1000]))
+          model <- loess(df_data[, i + 2] ~ inp, span = 1/complexity, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
       } else if (input$model_name == "Polynomial") {
         for (i in 1:100) {
-          model <- lm(df_data[, i + 2] ~ poly(df_data$inp, complexity), data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp[1:1000]))
+          model <- lm(df_data[, i + 2] ~ poly(inp, complexity), data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
       }
       
@@ -279,7 +286,7 @@ server <- function(input, output) {
       avg_predictions <- rowMeans(predictions, na.rm = TRUE)
       
       # Calculate true form based on your data 
-      true_form <- df_testdata$observed[1:1000]
+      true_form <- df_testdata$true_form[1:1000]
       
       # Calculate bias
       bias <- avg_predictions - true_form
@@ -348,18 +355,18 @@ server <- function(input, output) {
       # Fit models and obtain predictions
       if (input$model_name == "Linear") {
         for (i in 1:100) {
-          model <- lm(df_data[, i + 2] ~ df_data$inp, data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp[1:1000]))#SHOULD BE FROM TEST 
+          model <- lm(df_data[, i + 2] ~ inp, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))#SHOULD BE FROM TEST 
         }
       } else if (input$model_name == "Non-Linear") {
         for (i in 1:100) {
-          model <- loess(df_data[, i + 2] ~ df_data$inp, span = 1/complexity, data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp[1:1000]))
+          model <- loess(df_data[, i + 2] ~ inp, span = 1/complexity, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
       } else if (input$model_name == "Polynomial") {
         for (i in 1:100) {
-          model <- lm(df_data[, i + 2] ~ poly(df_data$inp, complexity), data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp[1:1000]))
+          model <- lm(df_data[, i + 2] ~ poly(inp, complexity), data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
       }
       
@@ -406,7 +413,115 @@ server <- function(input, output) {
   })
 
     
-
+  output$Plot4 <- renderPlot({
+    
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    # Initialize a data frame to store bias and variance for different complexities
+    metrics <- data.frame(
+      Complexity = numeric(),
+      Metric = character(),
+      Value = numeric()
+    )
+    
+    # Define the range of complexities
+    if (input$model_name == "Linear") {
+      complexities <- 1  # Linear model has no complexity parameter
+    } else if (input$model_name == "Non-Linear") {
+      complexities <- seq(0.1, 10, by = 1)
+    } else if (input$model_name == "Polynomial") {
+      complexities <- 1:10
+    }
+    
+    # Loop over each complexity level
+    for (complexity in complexities) {
+      # Store predictions for each degree
+      predictions <- matrix(nrow = 1000, ncol = 100)
+      training_predictions <- matrix(nrow = input$num_ob, ncol = 100)
+      
+      # Fit models and obtain predictions
+      if (input$model_name == "Linear") {
+        for (i in 1:100) {
+          model <- lm(df_data[, i + 2] ~ inp, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))#SHOULD BE FROM TEST 
+          training_predictions[, i] <- predict(model, newdata = data.frame(inp = df_data$inp))#SHOULD BE FROM Traing 
+        }
+      } else if (input$model_name == "Non-Linear") {
+        for (i in 1:100) {
+          model <- loess(df_data[, i + 2] ~ inp, span = 1/complexity, data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
+          training_predictions[, i] <- predict(model, newdata = data.frame(inp = df_data$inp))
+          
+        }
+      } else if (input$model_name == "Polynomial") {
+        for (i in 1:100) {
+          model <- lm(df_data[, i + 2] ~ poly(inp, complexity), data = df_data)
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
+          training_predictions[, i] <- predict(model, newdata = data.frame(inp = df_data$inp))
+          
+        }
+      }
+      
+      # Calculate average predictions
+      avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+      avg_training_predictions <- rowMeans(training_predictions, na.rm = TRUE)
+      
+      # Calculate true form based on your data 
+      true_form <- df_testdata$true_form[1:1000]
+      training_true_form <- df_data$true_form
+      # Calculate bias
+      bias <- avg_predictions - true_form
+      training_bias <- avg_training_predictions - training_true_form
+      
+      # Calculate squared bias
+      squared_bias <- bias^2
+      training_squared_bias<- training_bias^2
+      
+      # Calculate overall squared bias
+      overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+      t_overall_squared_bias <- mean(training_squared_bias, na.rm = TRUE)
+      # Calculate variances of predictions
+      prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+      t_prediction_vars <- apply(training_predictions, 1, var, na.rm = TRUE)
+      # Calculate overall variance
+      overall_variance <- mean(prediction_vars, na.rm = TRUE)
+      t_overall_variance <- mean(t_prediction_vars, na.rm = TRUE)
+      #test MSE
+      
+      test_MSE = overall_variance + overall_squared_bias + (input$epsilon)^2
+      training_MSE = t_overall_variance + t_overall_squared_bias + (input$epsilon)^2
+      
+      
+      
+      
+      
+      
+      
+      # Store metrics for current complexity level
+      metrics <- rbind(
+        metrics,
+        data.frame(Complexity = complexity, Metric = "test MSE", Value = test_MSE),
+        data.frame(Complexity = complexity, Metric = "training MSE", Value = training_MSE)
+      )
+    }
+    
+    # Plot training and test MSE
+    plot_mse <- ggplot(metrics, aes(x = Complexity, y = Value, color = Metric, group = Metric)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      labs(
+        title = "Training MSE vs. Test MSE",
+        x = "Complexity",
+        y = "Mean Squared Error"
+      ) +
+      theme_minimal() +
+      scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    print(plot_mse)
+  })
   
       
       
