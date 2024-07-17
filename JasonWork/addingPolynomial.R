@@ -35,7 +35,7 @@ ui <- fluidPage(
                        min = 100,
                        max = 500,
                        value = 1,
-                       step = 50)),
+                       step = 200)),
     
     column(2,
            conditionalPanel(
@@ -53,7 +53,7 @@ ui <- fluidPage(
             sliderInput(inputId = "degree",
                        label = "Polynomial degree",
                        min = 1,
-                       max = 10,
+                       max = 4,
                        value = 1,
                        step = 1)
                        )),
