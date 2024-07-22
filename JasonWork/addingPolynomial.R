@@ -53,7 +53,11 @@ ui <- fluidPage(
             sliderInput(inputId = "degree",
                        label = "Polynomial degree",
                        min = 1,
+<<<<<<< HEAD
                        max = 8,
+=======
+                       max = 4,
+>>>>>>> f1f8613cd6fb3d5352a0ba86cf6648dd3d4abeb2
                        value = 1,
                        step = 1)
                        ))#,
