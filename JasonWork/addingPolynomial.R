@@ -49,14 +49,14 @@ ui <- fluidPage(
            )),
     column(2,
            conditionalPanel(
-            condition = "input.model_name == 'Polynomial'",
-            sliderInput(inputId = "degree",
-                       label = "Polynomial degree",
-                       min = 1,
-                       max = 4,
-                       value = 1,
-                       step = 1)
-                       )),
+             condition = "input.model_name == 'Polynomial'",
+             sliderInput(inputId = "degree",
+                         label = "Polynomial degree",
+                         min = 1,
+                         max = 4,
+                         value = 1,
+                         step = 1)
+           )),
     
     
     column(2, plotOutput("myLegend"))
@@ -163,7 +163,7 @@ server <- function(input, output) {
   
   
   
- 
+  
   
   
   
@@ -207,7 +207,7 @@ server <- function(input, output) {
     
     
     else if(input$dataset == "Data set 3") 
-    
+      
     {
       p <- ggplot(data = df()$toy_data, aes(x = inp, y = response1)) + 
         geom_point() +
@@ -228,15 +228,15 @@ server <- function(input, output) {
     
   })
   
-
-
   
   
   
   
   
   
- 
+  
+  
+  
   output$Plot2 <- renderPlot({
     
     # Get the current value of reactive data frame df
@@ -324,7 +324,7 @@ server <- function(input, output) {
     print(plot_bias)
   })
   
-
+  
   output$Plot3 <- renderPlot({
     
     # Get the current value of reactive data frame df
@@ -411,8 +411,8 @@ server <- function(input, output) {
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
     print(plot_variance)
   })
-
-    
+  
+  
   output$Plot4 <- renderPlot({
     
     # Get the current value of reactive data frame df
@@ -523,11 +523,11 @@ server <- function(input, output) {
     print(plot_mse)
   })
   
-      
-      
-      
-      
-      
+  
+  
+  
+  
+  
   
   
   output$myLegend <- renderPlot({
@@ -545,6 +545,4 @@ server <- function(input, output) {
 shinyApp(ui = ui, server = server)
 
 
-#NEXT STEP: WRITE A FOR LOOP TO INCREASE THE NUMBER OF REPLICATED DATASETS (500 OR SOMETHING)
-#GENERATE TEST DATA (1000 OBSERVATIONS) AND THEN COMPUTE BIAS AND VARIANCE ON TEST DATA.
-#CALCULATE rmse =BIAS^2+VARIANCE+NOISE^2
+
