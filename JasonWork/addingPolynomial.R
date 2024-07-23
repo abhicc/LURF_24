@@ -49,7 +49,6 @@ ui <- fluidPage(
            )),
     column(2,
            conditionalPanel(
-<<<<<<< HEAD
              condition = "input.model_name == 'Polynomial'",
              sliderInput(inputId = "degree",
                          label = "Polynomial degree",
@@ -58,26 +57,21 @@ ui <- fluidPage(
                          value = 1,
                          step = 1)
            )),
-=======
             condition = "input.model_name == 'Polynomial'",
             sliderInput(inputId = "degree",
                        label = "Polynomial degree",
                        min = 1,
-<<<<<<< HEAD
                        max = 8,
-=======
                        max = 4,
->>>>>>> f1f8613cd6fb3d5352a0ba86cf6648dd3d4abeb2
                        value = 1,
                        step = 1)
-                       ))#,
->>>>>>> 3f05146a1bbec9a48b9b05cb92fdf4be20303c49
+                       ))
     
     
     #column(2, plotOutput("myLegend"))
     
     
-  ),
+  
   
   
   fluidRow(
@@ -86,7 +80,6 @@ ui <- fluidPage(
     column(3, plotOutput("Plot3")),
     column(3, plotOutput("Plot4"))
   )
-)
 
 
 server <- function(input, output) {
