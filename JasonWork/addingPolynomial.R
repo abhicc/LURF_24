@@ -1,5 +1,7 @@
 library(tidyverse)
 library(shiny)
+library(FNN)
+
 #let users choose the model
 
 
@@ -9,18 +11,20 @@ ui <- fluidPage(
   # Application title
   titlePanel("Model Bias and Variance"),
   
+ 
+  
   fluidRow(
     
     column(2,
            selectInput(inputId = "dataset",
                        label = "Select a dataset",
                        choices = c("Data set 1", "Data set 2","Data set 3"),
-                       selected = "Linear")),
+                       selected = "Data set 1")),
     column(2,
            selectInput(inputId = "model_name",
                        label = "Select model",
-                       choices = c( "Non-Linear","Polynomial"),
-                       selected = "Linear")),
+                       choices = c("Non-Linear", "Polynomial", "KNN"),
+                       selected = "Non-Linear")),
     
     column(2,
            sliderInput(inputId = "epsilon",
@@ -32,10 +36,10 @@ ui <- fluidPage(
     column(2,
            sliderInput(inputId = "num_ob",
                        label = "Number of observations",
-                       min = 100,
-                       max = 500,
-                       value = 1,
-                       step = 200)),
+                       min = 50,
+                       max = 150,
+                       value = 100,
+                       step = 50)),
     
     column(2,
            conditionalPanel(
@@ -45,28 +49,32 @@ ui <- fluidPage(
                          min = 0.1,
                          max = 8,
                          value = 1,
+                         step = 0.1)
+           )),
+    column(2,
+           conditionalPanel(
+             condition = "input.model_name == 'KNN'",
+             sliderInput(inputId = "k_value",
+                         label = "K-value",
+                         min = 3,
+                         max = 13,
+                         value = 3,
                          step = 1)
            )),
     column(2,
            conditionalPanel(
-            condition = "input.model_name == 'Polynomial'",
-            sliderInput(inputId = "degree",
-                       label = "Polynomial degree",
-                       min = 1,
-<<<<<<< HEAD
-                       max = 8,
-=======
-                       max = 4,
->>>>>>> f1f8613cd6fb3d5352a0ba86cf6648dd3d4abeb2
-                       value = 1,
-                       step = 1)
-                       ))#,
-    
-    
-    #column(2, plotOutput("myLegend"))
-    
-    
+             condition = "input.model_name == 'Polynomial'",
+             sliderInput(inputId = "degree",
+                         label = "Polynomial degree",
+                         min = 1,
+                         max = 8,
+                         value = 1,
+                         step = 1)
+           ))
   ),
+    
+    
+ 
   
   
   fluidRow(
@@ -171,12 +179,20 @@ server <- function(input, output) {
   
   
   
+  library(shiny)
+  library(ggplot2)
+  library(FNN)
+  
+  library(shiny)
+  library(ggplot2)
+  library(class)
+  
   output$Plot1 <- renderPlot({
+    df_data <- df()$toy_data
     
     if (input$dataset == "Data set 1") {
-      p <- ggplot(data = df()$toy_data, aes(x = inp, y = response1)) + 
+      p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
         geom_point() +
-        scale_color_manual(values = c("linear model" = "blue", "non-linear model" = "green", "polynomial model" = "red")) +
         labs(title = "Training Data", y = "y", x = "x") +
         scale_y_continuous(limits = c(15, 40)) +
         scale_x_continuous(limits = c(20, 40))
@@ -187,14 +203,17 @@ server <- function(input, output) {
         p <- p + geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE)
       } else if (input$model_name == "Polynomial") {
         p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
+      } else if (input$model_name == "KNN") {
+        knn_pred <- knn(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), cl = df_data$response1, k = input$k_value)
+        df_knn <- data.frame(inp = df_data$inp, response1 = as.numeric(as.character(knn_pred)))
+        p <- p + geom_line(data = df_knn, aes(x = inp, y = response1), size = 1)
       }
       print(p)
     }
     
-    else if(input$dataset == "Data set 2") {
-      p <- ggplot(data = df()$toy_data, aes(x = inp, y = response1)) + 
+    else if (input$dataset == "Data set 2") {
+      p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
         geom_point() +
-        scale_color_manual(values = c("linear model" = "blue", "non-linear model" = "green", "polynomial model" = "red")) +
         labs(title = "Training Data", y = "y", x = "x") +
         scale_y_continuous(limits = c(3, 13)) +
         scale_x_continuous(limits = c(20, 40))
@@ -205,17 +224,17 @@ server <- function(input, output) {
         p <- p + geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE)
       } else if (input$model_name == "Polynomial") {
         p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
+      } else if (input$model_name == "KNN") {
+        knn_pred <- knn(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), cl = df_data$response1, k = input$k_value)
+        df_knn <- data.frame(inp = df_data$inp, response1 = as.numeric(as.character(knn_pred)))
+        p <- p + geom_line(data = df_knn, aes(x = inp, y = response1), size = 1)
       }
       print(p)
     }
     
-    
-    else if(input$dataset == "Data set 3") 
-    
-    {
-      p <- ggplot(data = df()$toy_data, aes(x = inp, y = response1)) + 
+    else if (input$dataset == "Data set 3") {
+      p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
         geom_point() +
-        scale_color_manual(values = c("linear model" = "blue", "non-linear model" = "green", "polynomial model" = "red")) +
         labs(title = "Training Data", y = "y", x = "x") +
         scale_y_continuous(limits = c(-30, 30)) +
         scale_x_continuous(limits = c(-6, 6))
@@ -226,11 +245,17 @@ server <- function(input, output) {
         p <- p + geom_smooth(span = 1/input$flex, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE)
       } else if (input$model_name == "Polynomial") {
         p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
+      } else if (input$model_name == "KNN") {
+        knn_pred <- knn(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), cl = df_data$response1, k = input$k_value)
+        df_knn <- data.frame(inp = df_data$inp, response1 = as.numeric(as.character(knn_pred)))
+        p <- p + geom_line(data = df_knn, aes(x = inp, y = response1), size = 1)
       }
       print(p)
     }
     
   })
+  
+  
   
 
 
