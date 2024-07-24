@@ -36,8 +36,8 @@ ui <- fluidPage(
     column(2,
            sliderInput(inputId = "num_ob",
                        label = "Number of observations",
-                       min = 50,
-                       max = 150,
+                       min = 100,
+                       max = 500,
                        value = 100,
                        step = 50)),
     
@@ -57,7 +57,7 @@ ui <- fluidPage(
              sliderInput(inputId = "k_value",
                          label = "K-value",
                          min = 3,
-                         max = 13,
+                         max = 10,
                          value = 3,
                          step = 1)
            )),
@@ -179,13 +179,13 @@ server <- function(input, output) {
   
   
   
-  library(shiny)
-  library(ggplot2)
-  library(FNN)
+ 
+  
+
   
   library(shiny)
   library(ggplot2)
-  library(class)
+  library(FNN)
   
   output$Plot1 <- renderPlot({
     df_data <- df()$toy_data
@@ -204,9 +204,9 @@ server <- function(input, output) {
       } else if (input$model_name == "Polynomial") {
         p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
       } else if (input$model_name == "KNN") {
-        knn_pred <- knn(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), cl = df_data$response1, k = input$k_value)
-        df_knn <- data.frame(inp = df_data$inp, response1 = as.numeric(as.character(knn_pred)))
-        p <- p + geom_line(data = df_knn, aes(x = inp, y = response1), size = 1)
+        knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), y = df_data$response1, k = input$k_value)
+        df_knn <- data.frame(inp = df_data$inp, response1 = knn_fit$pred)
+        p <- p + geom_step(data = df_knn, aes(x = inp, y = response1), size = 1)
       }
       print(p)
     }
@@ -225,9 +225,9 @@ server <- function(input, output) {
       } else if (input$model_name == "Polynomial") {
         p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
       } else if (input$model_name == "KNN") {
-        knn_pred <- knn(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), cl = df_data$response1, k = input$k_value)
-        df_knn <- data.frame(inp = df_data$inp, response1 = as.numeric(as.character(knn_pred)))
-        p <- p + geom_line(data = df_knn, aes(x = inp, y = response1), size = 1)
+        knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), y = df_data$response1, k = input$k_value)
+        df_knn <- data.frame(inp = df_data$inp, response1 = knn_fit$pred)
+        p <- p + geom_step(data = df_knn, aes(x = inp, y = response1), size = 1)
       }
       print(p)
     }
@@ -246,9 +246,9 @@ server <- function(input, output) {
       } else if (input$model_name == "Polynomial") {
         p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
       } else if (input$model_name == "KNN") {
-        knn_pred <- knn(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), cl = df_data$response1, k = input$k_value)
-        df_knn <- data.frame(inp = df_data$inp, response1 = as.numeric(as.character(knn_pred)))
-        p <- p + geom_line(data = df_knn, aes(x = inp, y = response1), size = 1)
+        knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), y = df_data$response1, k = input$k_value)
+        df_knn <- data.frame(inp = df_data$inp, response1 = knn_fit$pred)
+        p <- p + geom_step(data = df_knn, aes(x = inp, y = response1), size = 1)
       }
       print(p)
     }
@@ -272,32 +272,34 @@ server <- function(input, output) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Initialize a data frame to store bias and variance for different complexities
+    # Initialize a data frame to store bias and variance for different complexities/k values
     metrics <- data.frame(
       Complexity = numeric(),
       Metric = character(),
       Value = numeric()
     )
     
-    # Define the range of complexities
+    # Define the range of complexities or k values
     if (input$model_name == "Linear") {
       complexities <- 1  # Linear model has no complexity parameter
     } else if (input$model_name == "Non-Linear") {
       complexities <- seq(0.1, 8, by = 1)
     } else if (input$model_name == "Polynomial") {
       complexities <- 1:8
+    } else if (input$model_name == "KNN") {
+      complexities <- 3:20  # Use k values for KNN
     }
     
-    # Loop over each complexity level
+    # Loop over each complexity/k value
     for (complexity in complexities) {
-      # Store predictions for each degree
-      predictions <- matrix(nrow = 1000, ncol = 20)
+      # Store predictions for each complexity/k value
+      predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
       
       # Fit models and obtain predictions
       if (input$model_name == "Linear") {
         for (i in 1:20) {
           model <- lm(df_data[, i + 2] ~ inp, data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))#SHOULD BE FROM TEST 
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
       } else if (input$model_name == "Non-Linear") {
         for (i in 1:20) {
@@ -309,13 +311,18 @@ server <- function(input, output) {
           model <- lm(df_data[, i + 2] ~ poly(inp, complexity), data = df_data)
           predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
+      } else if (input$model_name == "KNN") {
+        for (i in 1:20) {
+          knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[, i + 2], k = complexity)
+          predictions[, i] <- knn_fit$pred
+        }
       }
       
       # Calculate average predictions
       avg_predictions <- rowMeans(predictions, na.rm = TRUE)
       
-      # Calculate true form based on your data 
-      true_form <- df_testdata$true_form[1:1000]
+      # Ensure true_form is correctly aligned with the predictions
+      true_form <- df_testdata$true_form
       
       # Calculate bias
       bias <- avg_predictions - true_form
@@ -332,7 +339,7 @@ server <- function(input, output) {
       # Calculate overall variance
       overall_variance <- mean(prediction_vars, na.rm = TRUE)
       
-      # Store metrics for current complexity level
+      # Store metrics for current complexity/k value
       metrics <- rbind(
         metrics,
         data.frame(Complexity = complexity, Metric = "Bias", Value = overall_squared_bias),
@@ -340,11 +347,12 @@ server <- function(input, output) {
       )
     }
     
+    # Plot Bias
     plot_bias <- ggplot(metrics[metrics$Metric == "Bias", ], aes(x = as.factor(Complexity), y = Value)) +
       geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8, fill = "blue") +
       labs(
         title = "Bias",
-        x = "Complexity",
+        x = ifelse(input$model_name == "KNN", "k Value", "Complexity"),  # Adjust x-axis label
         y = ""  # Empty string for no y-axis label
       ) +
       theme_minimal() +
@@ -352,42 +360,43 @@ server <- function(input, output) {
             legend.position = "none")  # Remove legend
     
     print(plot_bias)
-    
   })
   
-
+  
   output$Plot3 <- renderPlot({
     
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Initialize a data frame to store bias and variance for different complexities
+    # Initialize a data frame to store bias and variance for different complexities/k values
     metrics <- data.frame(
       Complexity = numeric(),
       Metric = character(),
       Value = numeric()
     )
     
-    # Define the range of complexities
+    # Define the range of complexities or k values
     if (input$model_name == "Linear") {
       complexities <- 1  # Linear model has no complexity parameter
     } else if (input$model_name == "Non-Linear") {
       complexities <- seq(0.1, 8, by = 1)
     } else if (input$model_name == "Polynomial") {
       complexities <- 1:8
+    } else if (input$model_name == "KNN") {
+      complexities <- 3:20  # Use k values for KNN
     }
     
-    # Loop over each complexity level
+    # Loop over each complexity/k value
     for (complexity in complexities) {
-      # Store predictions for each degree
-      predictions <- matrix(nrow = 1000, ncol = 20)
+      # Store predictions for each complexity/k value
+      predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
       
       # Fit models and obtain predictions
       if (input$model_name == "Linear") {
         for (i in 1:20) {
           model <- lm(df_data[, i + 2] ~ inp, data = df_data)
-          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))#SHOULD BE FROM TEST 
+          predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
       } else if (input$model_name == "Non-Linear") {
         for (i in 1:20) {
@@ -399,13 +408,18 @@ server <- function(input, output) {
           model <- lm(df_data[, i + 2] ~ poly(inp, complexity), data = df_data)
           predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
         }
+      } else if (input$model_name == "KNN") {
+        for (i in 1:20) {
+          knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[, i + 2], k = complexity)
+          predictions[, i] <- knn_fit$pred
+        }
       }
       
       # Calculate average predictions
       avg_predictions <- rowMeans(predictions, na.rm = TRUE)
       
-      # Calculate true form based on your data 
-      true_form <- df_testdata$true_form[1:1000]
+      # Ensure true_form is correctly aligned with the predictions
+      true_form <- df_testdata$true_form
       
       # Calculate bias
       bias <- avg_predictions - true_form
@@ -422,7 +436,7 @@ server <- function(input, output) {
       # Calculate overall variance
       overall_variance <- mean(prediction_vars, na.rm = TRUE)
       
-      # Store metrics for current complexity level
+      # Store metrics for current complexity/k value
       metrics <- rbind(
         metrics,
         data.frame(Complexity = complexity, Metric = "Bias", Value = overall_squared_bias),
@@ -430,11 +444,12 @@ server <- function(input, output) {
       )
     }
     
+    # Plot Variance
     plot_variance <- ggplot(metrics[metrics$Metric == "Variance", ], aes(x = as.factor(Complexity), y = Value)) +
       geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8, fill = "red") +
       labs(
         title = "Variance",
-        x = "Complexity",
+        x = ifelse(input$model_name == "KNN", "k Value", "Complexity"),  # Adjust x-axis label
         y = ""  # Empty string for no y-axis label
       ) +
       theme_minimal() +
@@ -442,8 +457,8 @@ server <- function(input, output) {
             legend.position = "none")  # Remove legend
     
     print(plot_variance)
-    
   })
+  
 
     
   output$Plot4 <- renderPlot({
@@ -457,13 +472,15 @@ server <- function(input, output) {
       Value = numeric()
     )
     
+    # Define complexities or k values
     complexities <- switch(input$model_name,
                            "Non-Linear" = seq(0.1, 8, by = 1),
-                           "Polynomial" = 1:8)
+                           "Polynomial" = 1:8,
+                           "KNN" = 3:20)  # Add k values for KNN
     
     for (complexity in complexities) {
       predictions <- matrix(nrow = 1000, ncol = 20)
-      training_mse_list <- numeric(100)
+      training_mse_list <- numeric(20)
       
       for (i in 1:20) {
         response_col <- paste0("response", i)
@@ -474,6 +491,12 @@ server <- function(input, output) {
           model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
         } else if (input$model_name == "Polynomial") {
           model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        } else if (input$model_name == "KNN") {
+          knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
+          predictions[, i] <- knn_fit$pred
+          training_preds <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), y = df_data[[response_col]], k = complexity)$pred
+          training_mse_list[i] <- mean((df_data[[response_col]] - training_preds)^2)
+          next
         }
         
         predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
@@ -499,12 +522,12 @@ server <- function(input, output) {
     }
     
     # Plot training and test MSE
-    plot_mse <- ggplot(metrics, aes(x = Complexity, y = Value, color = Metric, group = Metric)) +
+    plot_mse <- ggplot(metrics, aes(x = as.factor(Complexity), y = Value, color = Metric, group = Metric)) +
       geom_line(size = 1) +
       geom_point(size = 2) +
       labs(
         title = "Training MSE vs. Test MSE",
-        x = "Complexity",
+        x = ifelse(input$model_name == "KNN", "k Value", "Complexity"),  # Adjust x-axis label
         y = "Mean Squared Error"
       ) +
       theme_minimal() +
@@ -514,6 +537,7 @@ server <- function(input, output) {
     print(plot_mse)
   })
   
+  
       
       
       
@@ -521,13 +545,7 @@ server <- function(input, output) {
       
   
   
- # output$myLegend <- renderPlot({
- #   par(mai=rep(0.01,4))
-    # plot(NULL ,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=c(0,.1), ylim=c(0,.1))
- #   legend("center", legend=c("linear model", "non-linear model","polynomial model"), lty=c(1,1,1), lwd=c(4,4,4), col=c("darkblue", "green","red"))
- # },height=70)
-  
-  
+
   
   
 }
@@ -536,6 +554,4 @@ server <- function(input, output) {
 shinyApp(ui = ui, server = server)
 
 
-#NEXT STEP: WRITE A FOR LOOP TO INCREASE THE NUMBER OF REPLICATED DATASETS (500 OR SOMETHING)
-#GENERATE TEST DATA (1000 OBSERVATIONS) AND THEN COMPUTE BIAS AND VARIANCE ON TEST DATA.
-#CALCULATE rmse =BIAS^2+VARIANCE+NOISE^2
+
