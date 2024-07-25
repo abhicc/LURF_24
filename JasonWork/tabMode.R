@@ -39,7 +39,7 @@ ui <- fluidPage(
                fluidRow(
                  column(3, plotOutput("tab2_plot1")),
                  column(3, plotOutput("tab2_plot2")),
-                 column(3, plotOutput("tab2_plot3")),s
+                 column(3, plotOutput("tab2_plot3")),
                  column(3, plotOutput("tab2_plot4")),
                )
       ),
