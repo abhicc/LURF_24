@@ -16,6 +16,8 @@ b <- 0.87
 c <- 0.05  # Define c for the cubic term
 fx <- a + (b * x^2) + (c * x^3)  # true function
 
+fx <- a + (b * x) + (c * sin(x))  # true function
+
 # Generate observed responses
 responses <- fx + errors
 
@@ -41,6 +43,7 @@ ggplot(data = training_data) +
 
 # K values to fit
 ks <- 1:6
+ks <- 3:20
 
 # Initialize a data frame to store bias and variance for each K
 bias_var_df <- data.frame(k = integer(), bias_sq = numeric(), variance = numeric(), training_mse = numeric(), test_mse = numeric())
@@ -59,6 +62,13 @@ for (k in ks) {
     preds[, i] <- knn.reg(train = train_matrix, test = test_matrix, y = train_responses, k = k)$pred
     training_preds <- model_knn
     training_mse_list[i] <- mean((train_responses - training_preds)^2)
+    # Predict for training data
+    train_preds <- knn.reg(train = train_matrix, test = train_matrix, y = train_responses, k = k)$pred
+    # Predict for test data
+    test_preds <- knn.reg(train = train_matrix, test = test_matrix, y = train_responses, k = k)$pred
+    
+    preds[, i] <- test_preds
+    training_mse_list[i] <- mean((train_responses - train_preds)^2)
   }
   
   # Calculate bias squared
@@ -88,6 +98,70 @@ print(bias_var_df)
 ```{r}
 library(ggplot2)
 library(class)
+```
+
+```{r}
+library(ggplot2)
+library(FNN)
+
+set.seed(2024)
+
+# Simulate data
+x <- runif(n = 100, min = 20, max = 40)   # input/predictor
+
+# Generate 500 sets of errors with more variability
+errors <- matrix(rnorm(100 * 500, mean = 0, sd = 2), nrow = 100, ncol = 500)
+a <- 3
+b <- 0.87
+c <- 0.05  # Define c for the cubic term
+fx <- a + (b * x) + (c * sin(x))  # true function
+
+# Generate observed responses
+responses <- fx + errors
+
+# Create a data frame
+training_data <- data.frame(inp = x, true_form = fx, responses)
+
+set.seed(2025)
+xtest <- runif(n = 100, min = 20, max = 40)
+error_test <- rnorm(n = 100, mean = 0, sd = 2)
+fxtest <- a + (b * xtest^2) + (c * xtest^3)
+response_test <- fxtest + error_test
+
+# Create test data frame
+test_data <- data.frame(inp = xtest, true_form = fxtest, response = response_test)
+
+# Rename response columns for easier reference
+colnames(training_data)[3:(3 + 499)] <- paste0("response", 1:500)
+
+# Define the K value
+k <- 3  # You can choose any K value, here we use 3 for illustration
+
+# Generate a sequence of input values with a step of 0.01
+x_seq <- seq(20, 40, by = 0.01)
+
+# Create a matrix for the sequence of input values
+x_seq_matrix <- matrix(x_seq, ncol = 1)
+
+# Predict responses using KNN for each value in the sequence
+pred_values <- knn.reg(train = as.matrix(training_data$inp), test = x_seq_matrix, y = training_data$response1, k = k)$pred
+
+# Create a data frame for plotting
+plot_data <- data.frame(inp = x_seq, predicted = pred_values)
+
+# Plot the predictions in a step-like manner
+ggplot() + 
+  geom_step(data = plot_data, aes(x = inp, y = predicted), direction = "hv") +
+  labs(title = "KNN Model Predictions", x = "Input", y = "Predicted Response") +
+  geom_point(data = training_data, aes(x = inp, y = response1), color = "red", alpha = 0.5) +
+  theme_minimal()
+
+```
+
+
+```{r}
+library(ggplot2)
+library(FNN)
 
 set.seed(2024)
 
@@ -100,6 +174,8 @@ a <- 3
 b <- 0.87
 c <- 0.05  # Define c for the cubic term
 fx <- a + (b * x^2) + (c * x^3)  # true function
+
+fx <- a + (b * x) + (c * sin(x))  # true function
 
 # Generate observed responses
 responses <- fx + errors
@@ -164,3 +240,28 @@ for (k in ks) {
 print(bias_var_df)
 
 ```
+=======
+# Define the K value
+k <- 3  # You can choose any K value, here we use 3 for illustration
+
+# Generate a sequence of input values with a step of 0.01
+x_seq <- seq(20, 40, by = 0.01)
+
+# Create a matrix for the sequence of input values
+x_seq_matrix <- matrix(x_seq, ncol = 1)
+
+# Predict responses using KNN for each value in the sequence
+pred_values <- knn.reg(train = as.matrix(training_data$inp), test = x_seq_matrix, y = training_data$response1, k = k)$pred
+
+# Create a data frame for plotting
+plot_data <- data.frame(inp = x_seq, predicted = pred_values)
+
+# Plot the predictions in a step-like manner
+ggplot() + 
+  geom_step(data = plot_data, aes(x = inp, y = predicted), direction = "hv") +
+  labs(title = "KNN Model Predictions", x = "Input", y = "Predicted Response") +
+  geom_point(data = training_data, aes(x = inp, y = response1), color = "red", alpha = 0.5) +
+  theme_minimal()
+
+```
+

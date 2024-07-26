@@ -123,7 +123,7 @@ server <- function(input, output) {
       set.seed(2025)
       
       x_test <- runif(n = 1000, min = -5, max = 5)
-      fx_test <- a + (b * x_test^2) + (c * x_test^3)
+      fx_test <- a + (b * x_test) + (c * sin(x_test))
       test_data <- generate_test_data(x_test, fx_test, input$epsilon)
     }
     
