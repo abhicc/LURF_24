@@ -26,6 +26,7 @@ ui <- fluidPage(
       tabPanel("Non-Linear",
                sliderInput("flexibility", "Flexibility", 
                            min = 1, max = 7, value = 1, step = 0.5),
+               
                fluidRow(
                  column(3, plotOutput("tab1_plot1")),
                  column(3, plotOutput("tab1_plot2")),
@@ -39,7 +40,7 @@ ui <- fluidPage(
                fluidRow(
                  column(3, plotOutput("tab2_plot1")),
                  column(3, plotOutput("tab2_plot2")),
-                 column(3, plotOutput("tab2_plot3")),s
+                 column(3, plotOutput("tab2_plot3")),
                  column(3, plotOutput("tab2_plot4")),
                )
       ),
@@ -796,15 +797,13 @@ server <- function(input, output, session) {
   output$tab3_plot1 <- renderPlot({
     df_data <- df()$toy_data
     
-    if (is.null(df_data)) {
-      plot(1, type = "n", main = "No Data Available")
-      return(NULL)
-    }
+    
     
     p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
       geom_point() +
       labs(title = "Training Data", y = "y", x = "x")
     
+    # Conditional limits based on the dataset
     if (input$dataset == "Data set 1") {
       p <- p + scale_y_continuous(limits = c(15, 40)) +
         scale_x_continuous(limits = c(20, 40))
@@ -818,21 +817,18 @@ server <- function(input, output, session) {
     
     # Use the reactive model_type
     if (model_type() == "Non-Linear") {
-      p <- p + geom_smooth(span = 1/input$flexibility, se = FALSE, aes(color = "non-linear model"), show.legend = FALSE)
+      p <- p + geom_smooth(span = 1/input$flexibility, se = FALSE, color = "red", show.legend = FALSE)
     } else if (model_type() == "Polynomial") {
-      p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, aes(color = "polynomial model"), show.legend = FALSE)
+      p <- p + geom_smooth(method = "lm", formula = y ~ poly(x, input$degree), se = FALSE, color = "red", show.legend = FALSE)
     } else if (model_type() == "KNN") {
       if (!is.null(input$k_value) && input$k_value > 0) {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_data$inp), y = df_data$response1, k = input$k_value)
         df_knn <- data.frame(inp = df_data$inp, response1 = knn_fit$pred)
-        p <- p + geom_step(data = df_knn, aes(x = inp, y = response1), size = 1)
+        p <- p + geom_step(data = df_knn, aes(x = inp, y = response1), size = 1, color = "red")
       } else {
         p <- p + ggtitle("Invalid KNN Parameters")
       }
-    } else {
-      p <- p + ggtitle("Invalid Model Name")
-    }
-    
+    } 
     print(p)
   })
   
