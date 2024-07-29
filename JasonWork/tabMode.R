@@ -4,20 +4,20 @@ library(FNN) # Ensure this library is loaded for KNN functionality
 
 # Define UI
 ui <- fluidPage(
-  titlePanel("Shiny App with Tab-specific and Common Sliders"),
+  titlePanel("BIAS-VARIANCE TRADEOFF VISUALIZATION"),
   
   sidebarPanel(
     # Drop-down menu for selecting datasets
     selectInput("dataset", "Dataset",
                 choices = c("Data set 1", "Data set 2", "Data set 3"),
-                selected = "Data set 1"),
+                selected = "Data set 2"),
     
     # Common sliders for all tabs
     sliderInput("num_ob", "Number of observations",
-                min = 50, max = 150, value = 50, step = 50),
+                min = 50, max = 250, value = 100, step = 100),
     
-    sliderInput("epsilon", "Variability", 
-                min = 0, max = 8, value = 1, step = 0.5)
+    # Dynamic slider for epsilon
+    uiOutput("epsilon_slider")
   ),
   
   mainPanel(
@@ -25,33 +25,47 @@ ui <- fluidPage(
       id = "tabs",
       tabPanel("Non-Linear",
                sliderInput("flexibility", "Flexibility", 
-                           min = 1, max = 7, value = 1, step = 0.5),
-               
+                           min = 1, max = 5, value = 1.5, step = 0.5),
+               checkboxInput("show_tab1_plot5", "Show Additional Plot", value = FALSE),
                fluidRow(
                  column(3, plotOutput("tab1_plot1")),
                  column(3, plotOutput("tab1_plot2")),
                  column(3, plotOutput("tab1_plot3")),
-                 column(3, plotOutput("tab1_plot4"))
+                 column(3, plotOutput("tab1_plot4")),
+                 column(3, conditionalPanel(
+                   condition = "input.show_tab1_plot5 == true",
+                   plotOutput("tab1_plot5")
+                 ))
                )
       ),
       tabPanel("Polynomial",
                sliderInput("degree", "Polynomial degree:", 
-                           min = 1, max = 8, value = 1, step = 1),
+                           min = 1, max = 5, value = 2, step = 1),
+               checkboxInput("show_tab2_plot5", "Show Additional Plot", value = FALSE),
                fluidRow(
                  column(3, plotOutput("tab2_plot1")),
                  column(3, plotOutput("tab2_plot2")),
                  column(3, plotOutput("tab2_plot3")),
                  column(3, plotOutput("tab2_plot4")),
+                 column(3, conditionalPanel(
+                   condition = "input.show_tab2_plot5 == true",
+                   plotOutput("tab2_plot5")
+                 ))
                )
       ),
       tabPanel("KNN",
                sliderInput("k_value", "K-value", 
-                           min = 3, max = 20, value = 1, step = 1),
+                           min = 3, max = 15, value = 5, step = 1),
+               checkboxInput("show_tab3_plot5", "Show Additional Plot", value = FALSE),
                fluidRow(
                  column(3, plotOutput("tab3_plot1")),
                  column(3, plotOutput("tab3_plot2")),
                  column(3, plotOutput("tab3_plot3")),
-                 column(3, plotOutput("tab3_plot4"))
+                 column(3, plotOutput("tab3_plot4")),
+                 column(3, conditionalPanel(
+                   condition = "input.show_tab3_plot5 == true",
+                   plotOutput("tab3_plot5")
+                 ))
                )
       )
     )
@@ -132,6 +146,16 @@ server <- function(input, output, session) {
            "KNN" = "KNN",
            "Unknown")  # Default case if no tab is selected
   })
+  # Dynamically render the epsilon slider based on the selected dataset
+  output$epsilon_slider <- renderUI({
+    if (input$dataset == "Data set 2") {
+      sliderInput("epsilon", "Variability", 
+                  min = 0, max = 1, value = 0.5, step = 0.1)
+    } else {
+      sliderInput("epsilon", "Variability", 
+                  min = 0, max = 6, value = 1, step = 0.5)
+    }
+  })
   
   # Non-Linear Tab Plots
   output$tab1_plot1 <- renderPlot({
@@ -170,9 +194,7 @@ server <- function(input, output, session) {
       } else {
         p <- p + ggtitle("Invalid KNN Parameters")
       }
-    } else {
-      p <- p + ggtitle("Invalid Model Name")
-    }
+    } 
     
     print(p)
   })
@@ -195,11 +217,11 @@ server <- function(input, output, session) {
     
     # Define the range of complexities or k values
     if (model_type() == "Non-Linear") {
-      complexities <- seq(0.1, 8, by = 1)
+      complexities <- seq(1, 5, by = 1)
     } else if (model_type() == "Polynomial") {
-      complexities <- 1:8
+      complexities <- 1:5
     } else if (model_type() == "KNN") {
-      complexities <- 3:20  # Use k values for KNN
+      complexities <- 3:15  # Use k values for KNN
     } else {
       complexities <- numeric()  # No complexities for unknown model types
     }
@@ -294,11 +316,11 @@ server <- function(input, output, session) {
     if (model_type() == "Linear") {
       complexities <- 1  # Linear model has no complexity parameter
     } else if (model_type() == "Non-Linear") {
-      complexities <- seq(0.1, 8, by = 1)
+      complexities <- seq(1, 5, by = 1)
     } else if (model_type() == "Polynomial") {
-      complexities <- 1:8
+      complexities <- 1:5
     } else if (model_type() == "KNN") {
-      complexities <- 3:20  # Use k values for KNN
+      complexities <- 3:15  # Use k values for KNN
     } else {
       complexities <- numeric()  # No complexities for unknown model types
     }
@@ -392,9 +414,9 @@ server <- function(input, output, session) {
     # Define complexities or k values
     complexities <- switch(model_type(),  # Use model_type() instead of input$model_name
                            "Linear" = 1,  # Linear model has no complexity parameter
-                           "Non-Linear" = seq(0.1, 8, by = 1),
-                           "Polynomial" = 1:8,
-                           "KNN" = 3:20)  # Add k values for KNN
+                           "Non-Linear" = seq(1, 5, by = 1),
+                           "Polynomial" = 1:5,
+                           "KNN" = 3:15)  # Add k values for KNN
     
     for (complexity in complexities) {
       predictions <- matrix(nrow = 1000, ncol = 20)
@@ -450,9 +472,69 @@ server <- function(input, output, session) {
       ) +
       theme_minimal() +
       scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top"  # Move legend to the top
+      )
     
     print(plot_mse)
+  })
+  
+  output$tab1_plot5 <- renderPlot({
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    # Get complexity from input$epsilon
+    complexity <- input$flexibility
+    # Create a data frame to store true values and predictions
+    plot_data <- data.frame(
+      inp = rep(df_testdata$inp, 8),  # True form + 7 models
+      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
+      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+    )
+    
+    # Initialize a matrix to store predictions
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    
+    for (i in 1:20) {
+      response_col <- paste0("response", i)
+      
+      if (model_type() == "Linear") {
+        model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+      } else if (model_type() == "Non-Linear") {
+        model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+      } else if (model_type() == "Polynomial") {
+        model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+      } else if (model_type() == "KNN") {
+        knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
+        predictions[, i] <- knn_fit$pred
+        next
+      }
+      
+      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
+    }
+    
+    # Plot the true form and the first 7 models
+    for (i in 1:7) {
+      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
+    }
+    
+    # Plot true form and predictions for the first 7 models
+    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
+      geom_line(size = 1) +
+      labs(
+        title = "True Form vs. Model Predictions",
+        x = "x",
+        y = "y"
+      ) +
+      scale_color_manual(values = c("True" = "red", rep("green", 7))) +
+      theme_minimal() +
+      theme(
+        legend.position = "none"  # Hide the legend
+      )
+    
+    print(plot_predictions)
   })
   
   
@@ -520,11 +602,11 @@ server <- function(input, output, session) {
     
     # Define the range of complexities or k values
     if (model_type() == "Non-Linear") {
-      complexities <- seq(0.1, 8, by = 1)
+      complexities <- seq(1, 5, by = 1)
     } else if (model_type() == "Polynomial") {
-      complexities <- 1:8
+      complexities <- 1:5
     } else if (model_type() == "KNN") {
-      complexities <- 3:20  # Use k values for KNN
+      complexities <- 3:15  # Use k values for KNN
     } else {
       complexities <- numeric()  # No complexities for unknown model types
     }
@@ -619,11 +701,11 @@ server <- function(input, output, session) {
     if (model_type() == "Linear") {
       complexities <- 1  # Linear model has no complexity parameter
     } else if (model_type() == "Non-Linear") {
-      complexities <- seq(0.1, 8, by = 1)
+      complexities <- seq(0.1, 5, by = 1)
     } else if (model_type() == "Polynomial") {
-      complexities <- 1:8
+      complexities <- 1:5
     } else if (model_type() == "KNN") {
-      complexities <- 3:20  # Use k values for KNN
+      complexities <- 3:15  # Use k values for KNN
     } else {
       complexities <- numeric()  # No complexities for unknown model types
     }
@@ -701,7 +783,7 @@ server <- function(input, output, session) {
   })
   
   
-  output$tab2_plot4 <- renderPlot({
+  output$tab2_plot4 <-renderPlot({
     
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
@@ -717,9 +799,9 @@ server <- function(input, output, session) {
     # Define complexities or k values
     complexities <- switch(model_type(),  # Use model_type() instead of input$model_name
                            "Linear" = 1,  # Linear model has no complexity parameter
-                           "Non-Linear" = seq(0.1, 8, by = 1),
-                           "Polynomial" = 1:8,
-                           "KNN" = 3:20)  # Add k values for KNN
+                           "Non-Linear" = seq(0.1, 5, by = 1),
+                           "Polynomial" = 1:5,
+                           "KNN" = 3:15)  # Add k values for KNN
     
     for (complexity in complexities) {
       predictions <- matrix(nrow = 1000, ncol = 20)
@@ -775,10 +857,73 @@ server <- function(input, output, session) {
       ) +
       theme_minimal() +
       scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top"  # Move legend to the top
+      )
     
     print(plot_mse)
   })
+  
+  output$tab2_plot5 <- renderPlot({
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    # Get complexity from input$epsilon
+    complexity <- input$degree
+    # Create a data frame to store true values and predictions
+    plot_data <- data.frame(
+      inp = rep(df_testdata$inp, 8),  # True form + 7 models
+      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
+      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+    )
+    
+    # Initialize a matrix to store predictions
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    
+    for (i in 1:20) {
+      response_col <- paste0("response", i)
+      
+      if (model_type() == "Linear") {
+        model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+      } else if (model_type() == "Non-Linear") {
+        model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+      } else if (model_type() == "Polynomial") {
+        model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+      } else if (model_type() == "KNN") {
+        knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
+        predictions[, i] <- knn_fit$pred
+        next
+      }
+      
+      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
+    }
+    
+    # Plot the true form and the first 7 models
+    for (i in 1:7) {
+      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
+    }
+    
+    # Plot true form and predictions for the first 7 models
+    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
+      geom_line(size = 1) +
+      labs(
+        title = "True Form vs. Model Predictions",
+        x = "x",
+        y = "y"
+      ) +
+      scale_color_manual(values = c("True" = "red", rep("green", 7))) +
+      theme_minimal() +
+      theme(
+        legend.position = "none"  # Hide the legend
+      )
+    
+    print(plot_predictions)
+  })
+  
+  
+  
   ###################
   
   
@@ -850,11 +995,11 @@ server <- function(input, output, session) {
     
     # Define the range of complexities or k values
     if (model_type() == "Non-Linear") {
-      complexities <- seq(0.1, 8, by = 1)
+      complexities <- seq(0.1, 5, by = 1)
     } else if (model_type() == "Polynomial") {
-      complexities <- 1:8
+      complexities <- 1:5
     } else if (model_type() == "KNN") {
-      complexities <- 3:20  # Use k values for KNN
+      complexities <- 3:15  # Use k values for KNN
     } else {
       complexities <- numeric()  # No complexities for unknown model types
     }
@@ -949,11 +1094,11 @@ server <- function(input, output, session) {
     if (model_type() == "Linear") {
       complexities <- 1  # Linear model has no complexity parameter
     } else if (model_type() == "Non-Linear") {
-      complexities <- seq(0.1, 8, by = 1)
+      complexities <- seq(0.1, 5, by = 1)
     } else if (model_type() == "Polynomial") {
-      complexities <- 1:8
+      complexities <- 1:5
     } else if (model_type() == "KNN") {
-      complexities <- 3:20  # Use k values for KNN
+      complexities <- 3:15  # Use k values for KNN
     } else {
       complexities <- numeric()  # No complexities for unknown model types
     }
@@ -1030,8 +1175,7 @@ server <- function(input, output, session) {
     print(plot_variance)
   })
   
-  
-  output$tab3_plot4 <- renderPlot({
+  output$tab3_plot4 <-renderPlot({
     
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
@@ -1047,9 +1191,9 @@ server <- function(input, output, session) {
     # Define complexities or k values
     complexities <- switch(model_type(),  # Use model_type() instead of input$model_name
                            "Linear" = 1,  # Linear model has no complexity parameter
-                           "Non-Linear" = seq(0.1, 8, by = 1),
-                           "Polynomial" = 1:8,
-                           "KNN" = 3:20)  # Add k values for KNN
+                           "Non-Linear" = seq(0.1, 5, by = 1),
+                           "Polynomial" = 1:5,
+                           "KNN" = 3:15)  # Add k values for KNN
     
     for (complexity in complexities) {
       predictions <- matrix(nrow = 1000, ncol = 20)
@@ -1105,13 +1249,70 @@ server <- function(input, output, session) {
       ) +
       theme_minimal() +
       scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top"  # Move legend to the top
+      )
     
     print(plot_mse)
   })
   
-  
-  
+  output$tab3_plot5 <- renderPlot({
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    # Get complexity from input$epsilon
+    complexity <- input$k_value
+    # Create a data frame to store true values and predictions
+    plot_data <- data.frame(
+      inp = rep(df_testdata$inp, 8),  # True form + 7 models
+      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
+      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+    )
+    
+    # Initialize a matrix to store predictions
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    
+    for (i in 1:20) {
+      response_col <- paste0("response", i)
+      
+      if (model_type() == "Linear") {
+        model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+      } else if (model_type() == "Non-Linear") {
+        model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+      } else if (model_type() == "Polynomial") {
+        model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+      } else if (model_type() == "KNN") {
+        knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
+        predictions[, i] <- knn_fit$pred
+        next
+      }
+      
+      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
+    }
+    
+    # Plot the true form and the first 7 models
+    for (i in 1:7) {
+      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
+    }
+    
+    # Plot true form and predictions for the first 7 models
+    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
+      geom_line(size = 1) +
+      labs(
+        title = "True Form vs. Model Predictions",
+        x = "Input",
+        y = "Value"
+      ) +
+      scale_color_manual(values = c("True" = "red", rep("green", 7))) +
+      theme_minimal() +
+      theme(
+        legend.position = "none"  # Hide the legend
+      )
+    
+    print(plot_predictions)
+  })
   
   
   
