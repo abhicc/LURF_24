@@ -1,4 +1,5 @@
 
+
 ```{r}
 library(ggplot2)
 library(FNN)
@@ -13,6 +14,8 @@ errors <- matrix(rnorm(100 * 500, mean = 0, sd = 2), nrow = 100, ncol = 500)
 a <- 3
 b <- 0.87
 c <- 0.05  # Define c for the cubic term
+fx <- a + (b * x^2) + (c * x^3)  # true function
+
 fx <- a + (b * x) + (c * sin(x))  # true function
 
 # Generate observed responses
@@ -39,6 +42,7 @@ ggplot(data = training_data) +
   labs(title = "Simulated Data", x = "Input", y = "Response")
 
 # K values to fit
+ks <- 1:6
 ks <- 3:20
 
 # Initialize a data frame to store bias and variance for each K
@@ -54,6 +58,10 @@ for (k in ks) {
     test_matrix <- as.matrix(test_data$inp)
     train_responses <- training_data[[paste0("response", i)]]
     
+    model_knn <- knn.reg(train = train_matrix, test = train_matrix, y = train_responses, k = k)$pred
+    preds[, i] <- knn.reg(train = train_matrix, test = test_matrix, y = train_responses, k = k)$pred
+    training_preds <- model_knn
+    training_mse_list[i] <- mean((train_responses - training_preds)^2)
     # Predict for training data
     train_preds <- knn.reg(train = train_matrix, test = train_matrix, y = train_responses, k = k)$pred
     # Predict for test data
@@ -84,6 +92,12 @@ for (k in ks) {
 
 print(bias_var_df)
 
+
+```
+
+```{r}
+library(ggplot2)
+library(class)
 ```
 
 ```{r}
@@ -159,6 +173,8 @@ errors <- matrix(rnorm(100 * 500, mean = 0, sd = 2), nrow = 100, ncol = 500)
 a <- 3
 b <- 0.87
 c <- 0.05  # Define c for the cubic term
+fx <- a + (b * x^2) + (c * x^3)  # true function
+
 fx <- a + (b * x) + (c * sin(x))  # true function
 
 # Generate observed responses
@@ -179,6 +195,52 @@ test_data <- data.frame(inp = xtest, true_form = fxtest, response = response_tes
 # Rename response columns for easier reference
 colnames(training_data)[3:(3 + 499)] <- paste0("response", 1:500)
 
+# Plot one of the data sets for visualization
+ggplot(data = training_data) + 
+  geom_point(aes(x = inp, y = response1)) +
+  labs(title = "Simulated Data", x = "Input", y = "Response")
+
+# K values to fit
+ks <- 1:6
+
+# Initialize a data frame to store bias and variance for each K
+bias_var_df <- data.frame(k = integer(), bias_sq = numeric(), variance = numeric(), training_mse = numeric(), test_mse = numeric())
+
+for (k in ks) {
+  # Store predictions for each K
+  preds <- matrix(nrow = 100, ncol = 500)
+  training_mse_list <- numeric(500)
+  
+  for (i in 1:500) {
+    model_knn <- knn(train = as.matrix(training_data$inp), test = as.matrix(training_data$inp), cl = training_data[[paste0("response", i)]], k = k)
+    preds[, i] <- as.numeric(knn(train = as.matrix(training_data$inp), test = as.matrix(test_data$inp), cl = training_data[[paste0("response", i)]], k = k))
+    training_preds <- as.numeric(model_knn)
+    training_mse_list[i] <- mean((training_data[[paste0("response", i)]] - training_preds)^2)
+  }
+  
+  # Calculate bias squared
+  E_y_hat <- apply(preds, 1, mean)
+  bias_squared <- (E_y_hat - test_data$true_form)^2
+  mean_bias_squared <- mean(bias_squared)
+  
+  # Calculate variance
+  V_y_hat <- apply(preds, 1, var)
+  mean_variance <- mean(V_y_hat)
+  
+  # Calculate test MSE using the theoretical formula
+  test_mse <- mean_bias_squared + mean_variance + 2^2
+  
+  # Calculate mean training MSE
+  mean_training_mse <- mean(training_mse_list)
+  
+  # Append results to data frame
+  bias_var_df <- rbind(bias_var_df, data.frame(k = k, bias_sq = mean_bias_squared, variance = mean_variance, training_mse = mean_training_mse, test_mse = test_mse))
+}
+
+print(bias_var_df)
+
+```
+=======
 # Define the K value
 k <- 3  # You can choose any K value, here we use 3 for illustration
 
