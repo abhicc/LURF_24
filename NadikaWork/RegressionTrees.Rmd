@@ -1,0 +1,108 @@
+
+```{r}
+library(ggplot2)
+library(rpart)
+
+set.seed(2024)
+
+# Simulate data
+x <- runif(n = 100, min = 20, max = 40) 
+
+# Generate 500 sets of errors with more variability
+errors <- matrix(rnorm(100 * 500, mean = 0, sd = 2), nrow = 100, ncol = 500)
+a <- 3
+b <- 0.87
+c <- 0.05  
+fx <- a + (b * x^2) + (c * x^3)  # true function
+
+# Generate observed responses
+responses <- fx + errors
+
+# Create a data frame
+training_data <- data.frame(inp = x, true_form = fx, responses)
+
+set.seed(2025)
+xtest <- runif(n = 100, min = 20, max = 40)
+error_test <- rnorm(n = 100, mean = 0, sd = 2)
+fxtest <- a + (b * xtest^2) + (c * xtest^3)
+response_test <- fxtest + error_test
+
+# Create test data frame
+test_data <- data.frame(inp = xtest, true_form = fxtest, response = response_test)
+
+# Rename response columns for easier reference
+colnames(training_data)[3:(3 + 499)] <- paste0("response", 1:500)
+
+# Plot one of the data sets for visualization
+ggplot(data = training_data) + 
+  geom_point(aes(x = inp, y = response1)) +
+  labs(title = "Simulated Data", x = "Input", y = "Response")
+
+# Fit decision tree models and calculate bias-variance
+bias_var_df <- data.frame(tree_size = integer(), bias_sq = numeric(), variance = numeric(), training_mse = numeric(), test_mse = numeric())
+
+tree_sizes <- 2:6  # Different sizes of trees to fit
+
+for (size in tree_sizes) {
+  preds <- matrix(nrow = 100, ncol = 500)
+  training_mse_list <- numeric(500)
+  
+  for (i in 1:500) {
+    
+    response_column <- paste0("response", i)
+    
+    # Fit the model
+    model_tree <- rpart(as.formula(paste(response_column, "~ inp")), data = training_data, control = rpart.control(maxdepth = size))
+    
+    # Predict on test data
+    preds[, i] <- predict(model_tree, newdata = test_data)
+    
+    # Predict on training data and calculate training MSE
+    training_preds <- predict(model_tree, newdata = training_data)
+    training_mse_list[i] <- mean((training_data[[response_column]] - training_preds)^2)
+  }
+  
+  # Calculate bias squared
+  E_y_hat <- rowMeans(preds)
+  bias_squared <- (E_y_hat - test_data$true_form)^2
+  mean_bias_squared <- mean(bias_squared)
+  
+  # Calculate variance
+  V_y_hat <- apply(preds, 1, var)
+  mean_variance <- mean(V_y_hat)
+  
+  # Calculate test MSE using theoretical formula
+  test_mse <- mean_bias_squared + mean_variance + 2^2
+  
+  # Calculate mean training MSE
+  mean_training_mse <- mean(training_mse_list)
+  
+  # Append results to data frame
+  bias_var_df <- rbind(bias_var_df, data.frame(tree_size = size, bias_sq = mean_bias_squared, variance = mean_variance, training_mse = mean_training_mse, test_mse = test_mse))
+}
+
+print(bias_var_df)
+
+# Define the tree size
+tree_size <- 2
+
+# Generate a sequence of input values- step 0.01
+x_seq <- seq(20, 40, by = 0.01)
+
+# Create a data frame 
+x_seq_df <- data.frame(inp = x_seq)
+
+# Predict responses using regression tree for each value in the sequence
+model_tree <- rpart(response1 ~ inp, data = training_data, control = rpart.control(maxdepth = tree_size))
+pred_values <- predict(model_tree, newdata = x_seq_df)
+
+plot_data <- data.frame(inp = x_seq, predicted = pred_values)
+
+# Plot the predictions
+ggplot() + 
+  geom_step(data = plot_data, aes(x = inp, y = predicted), direction = "hv") +
+  labs(title = "Regression Tree Model Predictions", x = "Input", y = "Predicted Response") +
+  geom_point(data = training_data, aes(x = inp, y = response1), color = "red", alpha = 0.5) +
+  theme_minimal()
+
+```
