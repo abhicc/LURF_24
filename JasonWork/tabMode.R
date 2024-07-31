@@ -108,12 +108,12 @@ server <- function(input, output, session) {
     
     if (input$dataset == "Data set 1") {
       set.seed(2024)
-      x <- runif(n = input$num_ob, min = 20, max = 40)
-      fx <- a + (b * x)
+      x <- runif(n = input$num_ob, min = -5, max = 15)
+      fx <- ifelse(0.1*(x^2)<3, 0.1*(x^2), 3)
       toy_data <- generate_data(x, fx, input$epsilon)
       set.seed(2025)
-      x_test <- runif(n = 1000, min = 20, max = 40)
-      fx_test <- a + (b * x_test)
+      x_test <- runif(n = 1000, min = -5, max = 15)
+      fx_test <- ifelse(0.1*(x_test^2)<3, 0.1*(x_test^2), 3)
       test_data <- generate_test_data(x_test, fx_test, input$epsilon)
     } else if (input$dataset == "Data set 2") {
       set.seed(2024)
@@ -151,9 +151,12 @@ server <- function(input, output, session) {
     if (input$dataset == "Data set 2") {
       sliderInput("epsilon", "Variability", 
                   min = 0, max = 1, value = 0.5, step = 0.1)
-    } else {
+    } else if (input$dataset == "Data set 3") {
+        sliderInput("epsilon", "Variability", 
+                    min = 3, max = 9, value = 5, step = 0.5)
+      } else {
       sliderInput("epsilon", "Variability", 
-                  min = 0, max = 6, value = 1, step = 0.5)
+                  min = 0, max = 0.6, value = 0.2, step = 0.1)
     }
   })
   
@@ -171,8 +174,8 @@ server <- function(input, output, session) {
       labs(title = "Training Data", y = "y", x = "x")
     
     if (input$dataset == "Data set 1") {
-      p <- p + scale_y_continuous(limits = c(15, 40)) +
-        scale_x_continuous(limits = c(20, 40))
+      p <- p + scale_y_continuous(limits = c(0, 5)) +
+        scale_x_continuous(limits = c(0, 15))
     } else if (input$dataset == "Data set 2") {
       p <- p + scale_y_continuous(limits = c(3, 13)) +
         scale_x_continuous(limits = c(20, 40))
@@ -471,7 +474,7 @@ server <- function(input, output, session) {
         y = "Mean Squared Error"
       ) +
       theme_minimal() +
-      scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
+      scale_color_manual(values = c("test MSE" = "purple", "training MSE" = "green")) +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top"  # Move legend to the top
@@ -485,7 +488,7 @@ server <- function(input, output, session) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$epsilon
+    # Get complexity from input$flexibility
     complexity <- input$flexibility
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
@@ -528,7 +531,14 @@ server <- function(input, output, session) {
         x = "x",
         y = "y"
       ) +
-      scale_color_manual(values = c("True" = "red", rep("green", 7))) +
+      scale_color_manual(values = c("True" = "black", 
+                                    "Model_1" = "pink", 
+                                    "Model_2" = "pink", 
+                                    "Model_3" = "pink", 
+                                    "Model_4" = "pink", 
+                                    "Model_5" = "pink", 
+                                    "Model_6" = "pink", 
+                                    "Model_7" = "pink")) +
       theme_minimal() +
       theme(
         legend.position = "none"  # Hide the legend
@@ -554,8 +564,8 @@ server <- function(input, output, session) {
       labs(title = "Training Data", y = "y", x = "x")
     
     if (input$dataset == "Data set 1") {
-      p <- p + scale_y_continuous(limits = c(15, 40)) +
-        scale_x_continuous(limits = c(20, 40))
+      p <- p + scale_y_continuous(limits = c(0, 5)) +
+        scale_x_continuous(limits = c(0, 10))
     } else if (input$dataset == "Data set 2") {
       p <- p + scale_y_continuous(limits = c(3, 13)) +
         scale_x_continuous(limits = c(20, 40))
@@ -856,7 +866,7 @@ server <- function(input, output, session) {
         y = "Mean Squared Error"
       ) +
       theme_minimal() +
-      scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
+      scale_color_manual(values = c("test MSE" = "purple", "training MSE" = "green")) +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top"  # Move legend to the top
@@ -870,7 +880,7 @@ server <- function(input, output, session) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$epsilon
+    # Get complexity from input$flexibility
     complexity <- input$degree
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
@@ -900,12 +910,15 @@ server <- function(input, output, session) {
       predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Plot the true form and the first 7 models
-    for (i in 1:7) {
+    # Ensure there are enough predictions
+    num_models <- min(7, ncol(predictions))
+    
+    # Plot the true form and the first num_models models
+    for (i in 1:num_models) {
       plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
     }
     
-    # Plot true form and predictions for the first 7 models
+    # Plot true form and predictions for the first num_models models
     plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
       geom_line(size = 1) +
       labs(
@@ -913,7 +926,14 @@ server <- function(input, output, session) {
         x = "x",
         y = "y"
       ) +
-      scale_color_manual(values = c("True" = "red", rep("green", 7))) +
+      scale_color_manual(values = c("True" = "black", 
+                                    "Model_1" = "pink", 
+                                    "Model_2" = "pink", 
+                                    "Model_3" = "pink", 
+                                    "Model_4" = "pink", 
+                                    "Model_5" = "pink", 
+                                    "Model_6" = "pink", 
+                                    "Model_7" = "pink")) +
       theme_minimal() +
       theme(
         legend.position = "none"  # Hide the legend
@@ -921,6 +941,8 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
+  
   
   
   
@@ -950,8 +972,8 @@ server <- function(input, output, session) {
     
     # Conditional limits based on the dataset
     if (input$dataset == "Data set 1") {
-      p <- p + scale_y_continuous(limits = c(15, 40)) +
-        scale_x_continuous(limits = c(20, 40))
+      p <- p + scale_y_continuous(limits = c(0, 5)) +
+        scale_x_continuous(limits = c(0, 10))
     } else if (input$dataset == "Data set 2") {
       p <- p + scale_y_continuous(limits = c(3, 13)) +
         scale_x_continuous(limits = c(20, 40))
@@ -1248,7 +1270,7 @@ server <- function(input, output, session) {
         y = "Mean Squared Error"
       ) +
       theme_minimal() +
-      scale_color_manual(values = c("test MSE" = "blue", "training MSE" = "green")) +
+      scale_color_manual(values = c("test MSE" = "purple", "training MSE" = "green")) +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top"  # Move legend to the top
@@ -1262,8 +1284,8 @@ server <- function(input, output, session) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$epsilon
-    complexity <- input$k_value
+    # Get complexity from input$flexibility
+    complexity <- input$flexibility
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
       inp = rep(df_testdata$inp, 8),  # True form + 7 models
@@ -1302,10 +1324,17 @@ server <- function(input, output, session) {
       geom_line(size = 1) +
       labs(
         title = "True Form vs. Model Predictions",
-        x = "Input",
-        y = "Value"
+        x = "x",
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "red", rep("green", 7))) +
+      scale_color_manual(values = c("True" = "black", 
+                                    "Model_1" = "pink", 
+                                    "Model_2" = "pink", 
+                                    "Model_3" = "pink", 
+                                    "Model_4" = "pink", 
+                                    "Model_5" = "pink", 
+                                    "Model_6" = "pink", 
+                                    "Model_7" = "pink")) +
       theme_minimal() +
       theme(
         legend.position = "none"  # Hide the legend
@@ -1313,6 +1342,7 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
   
   
   
