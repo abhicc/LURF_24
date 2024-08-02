@@ -1,7 +1,7 @@
 library(shiny)
 library(ggplot2)
 library(FNN) # Ensure this library is loaded for KNN functionality
-
+library(rpart)
 # Define UI
 ui <- fluidPage(
   titlePanel("BIAS-VARIANCE TRADEOFF VISUALIZATION"),
@@ -67,10 +67,24 @@ ui <- fluidPage(
                    plotOutput("tab3_plot5")
                  ))
                )
-      )
+      ),
+      tabPanel("Regression Tree",
+               sliderInput("tree_size", "Tree Size", 
+                           min = 2, max = 7, value = 3, step = 1),
+               checkboxInput("show_tab4_plot5", "Show Additional Plot", value = FALSE),
+               fluidRow(
+                 column(3, plotOutput("tab4_plot1")),
+                 column(3, plotOutput("tab4_plot2")),
+                 column(3, plotOutput("tab4_plot3")),
+                 column(3, plotOutput("tab4_plot4")),
+                 column(3, conditionalPanel(
+                   condition = "input.show_tab4_plot5 == true",
+                   plotOutput("tab4_plot5")
+                 ))
+               )
     )
   )
-)
+))
 
 # Define server logic
 server <- function(input, output, session) {
@@ -144,13 +158,13 @@ server <- function(input, output, session) {
            "Non-Linear" = "Non-Linear",
            "Polynomial" = "Polynomial",
            "KNN" = "KNN",
-           "Unknown")  # Default case if no tab is selected
+           "Regression Tree" = "Regression Tree")  # Default case if no tab is selected
   })
   # Dynamically render the epsilon slider based on the selected dataset
   output$epsilon_slider <- renderUI({
     if (input$dataset == "Data set 2") {
       sliderInput("epsilon", "Variability", 
-                  min = 0, max = 1, value = 0.5, step = 0.1)
+                  min = 0, max = 1, value = 0.3, step = 0.1)
     } else if (input$dataset == "Data set 3") {
         sliderInput("epsilon", "Variability", 
                     min = 3, max = 9, value = 5, step = 0.5)
@@ -1343,6 +1357,379 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
+ 
+  #####
+  
+  
+  
+  output$tab4_plot1 <- renderPlot({
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    
+    # Initialize the plot with training data
+    p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
+      geom_point() +
+      labs(title = "Training Data", y = "y", x = "x")
+    
+    # Conditional limits based on the dataset
+    if (input$dataset == "Data set 1") {
+      p <- p + scale_y_continuous(limits = c(0, 5)) +
+        scale_x_continuous(limits = c(0, 10))
+    } else if (input$dataset == "Data set 2") {
+      p <- p + scale_y_continuous(limits = c(3, 13)) +
+        scale_x_continuous(limits = c(20, 40))
+    } else if (input$dataset == "Data set 3") {
+      p <- p + scale_y_continuous(limits = c(-30, 30)) +
+        scale_x_continuous(limits = c(-6, 6))
+    }
+    
+    # Use the reactive model_type
+    if (model_type() == "Regression Tree") {
+      # Fit the regression tree model
+      tree_model <- rpart(response1 ~ inp, data = df_data, 
+                          control = rpart.control(maxdepth = input$tree_size, cp = 0, xval = 0, minbucket = 5))
+      
+      # Predict using the regression tree
+      df_data$tree_pred <- predict(tree_model, newdata = df_data)
+      
+      # Add the regression tree prediction to the plot
+      p <- p + geom_line(data = df_data, aes(x = inp, y = tree_pred), size = 1, color = "red")
+    }
+    
+    print(p)
+  })
+  
+  
+  output$tab4_plot2 <- renderPlot({
+    
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    
+    
+    # Initialize a data frame to store bias and variance for different complexities/k values
+    metrics <- data.frame(
+      Complexity = numeric(),
+      Metric = character(),
+      Value = numeric()
+    )
+    
+    # Define the range of complexities or k values
+    if (model_type() == "Regression Tree") {
+      complexities <- 2:7
+    } else if (model_type() == "Polynomial") {
+      complexities <- 1:5
+    } else if (model_type() == "KNN") {
+      complexities <- 3:15  # Use k values for KNN
+    } else {
+      complexities <- numeric()  # No complexities for unknown model types
+    }
+    
+    # Loop over each complexity/k value
+    for (complexity in complexities) {
+      # Store predictions for each complexity/k value
+      predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+      
+      if (model_type() == "Regression Tree") {
+        for (i in 1:20) {
+          response_col <- colnames(df_data)[i + 2]
+          formula <- as.formula(paste(response_col, "~ inp"))
+          
+          # Fit the regression tree model with the specified max depth (complexity)
+          tree_model <- rpart(formula, data = df_data, 
+                              control = rpart.control(maxdepth = complexity, cp = 0, xval = 0, minbucket = 5))
+          
+          # Predict using the tree model
+          predictions[, i] <- predict(tree_model, newdata = df_testdata)
+        }
+      }
+      
+      # Calculate average predictions
+      avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+      
+      # Ensure true_form is correctly aligned with the predictions
+      true_form <- df_testdata$true_form
+      
+      # Calculate bias
+      bias <- avg_predictions - true_form
+      
+      # Calculate squared bias
+      squared_bias <- bias^2
+      
+      # Calculate overall squared bias
+      overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+      
+      # Calculate variances of predictions
+      prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+      
+      # Calculate overall variance
+      overall_variance <- mean(prediction_vars, na.rm = TRUE)
+      
+      # Store metrics for current complexity/k value
+      metrics <- rbind(
+        metrics,
+        data.frame(Complexity = complexity, Metric = "Bias", Value = overall_squared_bias),
+        data.frame(Complexity = complexity, Metric = "Variance", Value = overall_variance)
+      )
+    }
+    
+    # Plot Bias
+    plot_bias <- ggplot(metrics[metrics$Metric == "Bias", ], aes(x = as.factor(Complexity), y = Value)) +
+      geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8, fill = "blue") +
+      labs(
+        title = "Bias",
+        x = ifelse(model_type() == "KNN", "k Value", "Complexity"),  # Adjust x-axis label
+        y = "Bias"  # Provide a label for y-axis
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "none")  # Remove legend
+    
+    print(plot_bias)
+  })
+  
+  
+  output$tab4_plot3 <- renderPlot({
+    
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    
+    
+    # Initialize a data frame to store bias and variance for different complexities/k values
+    metrics <- data.frame(
+      Complexity = numeric(),
+      Metric = character(),
+      Value = numeric()
+    )
+    
+    # Define the range of complexities or k values
+    if (model_type() == "Regression Tree") {
+      complexities <- 2:7
+    } else if (model_type() == "Polynomial") {
+      complexities <- 1:5
+    } else if (model_type() == "KNN") {
+      complexities <- 3:15  # Use k values for KNN
+    } else {
+      complexities <- numeric()  # No complexities for unknown model types
+    }
+    
+    # Loop over each complexity/k value
+    for (complexity in complexities) {
+      # Store predictions for each complexity/k value
+      predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+      
+      if (model_type() == "Regression Tree") {
+        for (i in 1:20) {
+          response_col <- colnames(df_data)[i + 2]
+          formula <- as.formula(paste(response_col, "~ inp"))
+          
+          # Fit the regression tree model with the specified max depth (complexity)
+          tree_model <- rpart(formula, data = df_data, 
+                              control = rpart.control(maxdepth = complexity, cp = 0, xval = 0, minbucket = 5))
+          
+          # Predict using the tree model
+          predictions[, i] <- predict(tree_model, newdata = df_testdata)
+        }
+      }
+      
+      # Calculate average predictions
+      avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+      
+      # Ensure true_form is correctly aligned with the predictions
+      true_form <- df_testdata$true_form
+      
+      # Calculate bias
+      bias <- avg_predictions - true_form
+      
+      # Calculate squared bias
+      squared_bias <- bias^2
+      
+      # Calculate overall squared bias
+      overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+      
+      # Calculate variances of predictions
+      prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+      
+      # Calculate overall variance
+      overall_variance <- mean(prediction_vars, na.rm = TRUE)
+      
+      # Store metrics for current complexity/k value
+      metrics <- rbind(
+        metrics,
+        data.frame(Complexity = complexity, Metric = "Bias", Value = overall_squared_bias),
+        data.frame(Complexity = complexity, Metric = "Variance", Value = overall_variance)
+      )
+    }
+      
+      
+    
+    # Plot Variance
+    plot_variance <- ggplot(metrics[metrics$Metric == "Variance", ], aes(x = as.factor(Complexity), y = Value)) +
+      geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8, fill = "red") +
+      labs(
+        title = "Variance",
+        x = ifelse(model_type() == "KNN", "k Value", "Complexity"),  # Adjust x-axis label
+        y = "Variance"  # Provide a label for y-axis
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "none")  # Remove legend
+    
+    print(plot_variance)
+  })
+  
+  library(rpart)
+  library(FNN)
+  library(ggplot2)
+  
+  output$tab4_plot4 <- renderPlot({
+    
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    # Initialize a data frame to store bias and variance for different complexities/k values
+    metrics <- data.frame(
+      Complexity = numeric(),
+      Metric = character(),
+      Value = numeric()
+    )
+    
+    # Define complexities or k values
+    complexities <- switch(model_type(),  # Use model_type() instead of input$model_name
+                           "Regression Tree" = 2:7,
+                           "Polynomial" = 1:5,
+                           "KNN" = 3:15)  # Add k values for KNN
+    
+    for (complexity in complexities) {
+      predictions <- matrix(nrow = 1000, ncol = 20)
+      training_mse_list <- numeric(20)
+      
+      for (i in 1:20) {
+        response_col <- paste0("response", i)
+        
+        if (model_type() == "Regression Tree") {
+          # Construct the formula for the response variable
+          formula <- as.formula(paste(response_col, "~ inp"))
+          
+          # Fit the regression tree model with the specified max depth (complexity)
+          tree_model <- rpart(formula, data = df_data, 
+                              control = rpart.control(maxdepth = complexity, cp = 0, xval = 0, minbucket = 5))
+          
+          # Predict using the tree model
+          predictions[, i] <- predict(tree_model, newdata = df_testdata)
+          
+          # Predict on training data for MSE calculation
+          training_preds <- predict(tree_model, newdata = df_data)
+          training_mse_list[i] <- mean((df_data[[response_col]] - training_preds)^2)
+          
+        }
+      }
+      
+      # Calculate metrics (e.g., bias, variance) and store in metrics data frame
+      avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+      true_form <- df_testdata$true_form[1:1000]
+      bias <- avg_predictions - true_form
+      squared_bias <- bias^2
+      overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+      prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+      overall_variance <- mean(prediction_vars, na.rm = TRUE)
+      test_MSE <- overall_variance + overall_squared_bias + (input$epsilon)^2
+      training_MSE <- mean(training_mse_list, na.rm = TRUE)
+      
+      metrics <- rbind(
+        metrics,
+        data.frame(Complexity = complexity, Metric = "test MSE", Value = test_MSE),
+        data.frame(Complexity = complexity, Metric = "training MSE", Value = training_MSE)
+      )
+    }
+    
+    # Plot training and test MSE
+    plot_mse <- ggplot(metrics, aes(x = as.factor(Complexity), y = Value, color = Metric, group = Metric)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      labs(
+        title = "Training MSE vs. Test MSE",
+        x = ifelse(model_type() == "KNN", "k Value", "Complexity"),  # Adjust x-axis label
+        y = "Mean Squared Error"
+      ) +
+      theme_minimal() +
+      scale_color_manual(values = c("test MSE" = "purple", "training MSE" = "green")) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top"  # Move legend to the top
+      )
+    
+    print(plot_mse)
+  })
+  
+  
+  output$tab4_plot5 <- renderPlot({
+    # Get the current value of reactive data frame df
+    df_data <- df()$toy_data
+    df_testdata <- df()$test_data
+    
+    # Get complexity from input$tree_size
+    complexity <- input$tree_size
+    
+    # Create a data frame to store true values and predictions
+    plot_data <- data.frame(
+      inp = rep(df_testdata$inp, 8),  # True form + 7 models
+      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
+      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+    )
+    
+    # Initialize a matrix to store predictions
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
+    
+    # Fit the models and store predictions
+    for (i in 1:7) {
+      response_col <- paste0("response", i)
+      
+      if (model_type() == "Regression Tree") {
+        # Construct the formula for the response variable
+        formula <- as.formula(paste(response_col, "~ inp"))
+        
+        # Fit the regression tree model with the specified max depth (complexity)
+        tree_model <- rpart(formula, data = df_data, 
+                            control = rpart.control(maxdepth = complexity, cp = 0, xval = 0, minbucket = 5))
+        
+        # Predict using the tree model
+        predictions[, i] <- predict(tree_model, newdata = data.frame(inp = df_testdata$inp))
+      }
+    }
+    
+    # Update plot_data with predictions
+    for (i in 1:7) {
+      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
+    }
+    
+    # Plot true form and predictions for the first 7 models
+    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
+      geom_line(size = 1) +
+      labs(
+        title = "True Form vs. Model Predictions",
+        x = "x",
+        y = "y"
+      ) +
+      scale_color_manual(values = c("True" = "black", 
+                                    "Model_1" = "pink", 
+                                    "Model_2" = "pink", 
+                                    "Model_3" = "pink", 
+                                    "Model_4" = "pink", 
+                                    "Model_5" = "pink", 
+                                    "Model_6" = "pink", 
+                                    "Model_7" = "pink")) +
+      theme_minimal() +
+      theme(
+        legend.position = "none"  # Hide the legend
+      )
+    
+    print(plot_predictions)
+  })
   
   
   
