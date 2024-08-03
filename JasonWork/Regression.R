@@ -167,7 +167,7 @@ server <- function(input, output, session) {
                   min = 0, max = 1, value = 0.3, step = 0.1)
     } else if (input$dataset == "Data set 3") {
         sliderInput("epsilon", "Variability", 
-                    min = 3, max = 9, value = 5, step = 0.5)
+                    min = 3, max = 10, value = 8, step = 1)
       } else {
       sliderInput("epsilon", "Variability", 
                   min = 0, max = 0.6, value = 0.2, step = 0.1)
@@ -504,11 +504,12 @@ server <- function(input, output, session) {
     
     # Get complexity from input$flexibility
     complexity <- input$flexibility
+    
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
-      inp = rep(df_testdata$inp, 8),  # True form + 7 models
-      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
-      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+      inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+      Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+      Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
     )
     
     # Initialize a matrix to store predictions
@@ -532,30 +533,40 @@ server <- function(input, output, session) {
       predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Plot the true form and the first 7 models
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
-    }
+    # Ensure there are enough predictions
+    num_models <- min(7, ncol(predictions))
     
-    # Plot true form and predictions for the first 7 models
+    # Calculate the mean of the predictions for each point
+    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    
+    # Update plot_data with predictions and mean predictions
+    for (i in 1:num_models) {
+      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
+    }
+    plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+    
+    # Plot true form, predictions for the first num_models models, and the mean model
     plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(size = 1) +
+      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
+      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
       labs(
         title = "True Form vs. Model Predictions",
         x = "x",
-        y = "y"
+        y = "y",
+        color = NULL  # Remove the legend title
       ) +
       scale_color_manual(values = c("True" = "black", 
-                                    "Model_1" = "pink", 
-                                    "Model_2" = "pink", 
-                                    "Model_3" = "pink", 
-                                    "Model_4" = "pink", 
-                                    "Model_5" = "pink", 
-                                    "Model_6" = "pink", 
-                                    "Model_7" = "pink")) +
+                                    "Model" = "pink", 
+                                    "Mean_Model" = "blue"),
+                         labels = c("True" = "True Form", 
+                                    "Model" = "Predictions", 
+                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "none"  # Hide the legend
+        legend.position = "top",  # Position the legend to the right
+        legend.title = element_blank(),  # Remove the legend title
+        legend.text = element_text(size = 8),  # Make legend text smaller
+        legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
       )
     
     print(plot_predictions)
@@ -894,13 +905,14 @@ server <- function(input, output, session) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$flexibility
+    # Get complexity from input$degree
     complexity <- input$degree
+    
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
-      inp = rep(df_testdata$inp, 8),  # True form + 7 models
-      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
-      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+      inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+      Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+      Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
     )
     
     # Initialize a matrix to store predictions
@@ -927,34 +939,42 @@ server <- function(input, output, session) {
     # Ensure there are enough predictions
     num_models <- min(7, ncol(predictions))
     
-    # Plot the true form and the first num_models models
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
-    }
+    # Calculate the mean of the predictions for each point
+    mean_predictions <- rowMeans(predictions[, 1:num_models])
     
-    # Plot true form and predictions for the first num_models models
+    # Update plot_data with predictions and mean predictions
+    for (i in 1:num_models) {
+      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
+    }
+    plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+    
+    # Plot true form, predictions for the first num_models models, and the mean model
     plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(size = 1) +
+      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
+      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
       labs(
         title = "True Form vs. Model Predictions",
         x = "x",
-        y = "y"
+        y = "y",
+        color = NULL  # Remove the legend title
       ) +
       scale_color_manual(values = c("True" = "black", 
-                                    "Model_1" = "pink", 
-                                    "Model_2" = "pink", 
-                                    "Model_3" = "pink", 
-                                    "Model_4" = "pink", 
-                                    "Model_5" = "pink", 
-                                    "Model_6" = "pink", 
-                                    "Model_7" = "pink")) +
+                                    "Model" = "pink", 
+                                    "Mean_Model" = "blue"),
+                         labels = c("True" = "True Form", 
+                                    "Model" = "Predictions", 
+                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "none"  # Hide the legend
+        legend.position = "top",  # Position the legend to the right
+        legend.title = element_blank(),  # Remove the legend title
+        legend.text = element_text(size = 8),  # Make legend text smaller
+        legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
       )
     
     print(plot_predictions)
   })
+  
   
   
   
@@ -1298,13 +1318,14 @@ server <- function(input, output, session) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$flexibility
-    complexity <- input$flexibility
+    # Get complexity from input$k_value
+    complexity <- input$k_value
+    
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
-      inp = rep(df_testdata$inp, 8),  # True form + 7 models
-      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
-      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+      inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+      Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+      Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
     )
     
     # Initialize a matrix to store predictions
@@ -1328,34 +1349,43 @@ server <- function(input, output, session) {
       predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Plot the true form and the first 7 models
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
-    }
+    # Calculate the mean of the predictions for each point
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Plot true form and predictions for the first 7 models
+    # Update plot_data with predictions and mean predictions
+    for (i in 1:7) {
+      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
+    }
+    plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+    
+    # Plot true form, predictions for the first 7 models, and the mean model
     plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(size = 1) +
+      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
+      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
       labs(
         title = "True Form vs. Model Predictions",
         x = "x",
-        y = "y"
+        y = "y",
+        color = NULL  # Remove the legend title
       ) +
       scale_color_manual(values = c("True" = "black", 
-                                    "Model_1" = "pink", 
-                                    "Model_2" = "pink", 
-                                    "Model_3" = "pink", 
-                                    "Model_4" = "pink", 
-                                    "Model_5" = "pink", 
-                                    "Model_6" = "pink", 
-                                    "Model_7" = "pink")) +
+                                    "Model" = "pink", 
+                                    "Mean_Model" = "blue"),
+                         labels = c("True" = "True Form", 
+                                    "Model" = "Predictions", 
+                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "none"  # Hide the legend
+        legend.position = "top",  # Position the legend to the right
+        legend.title = element_blank(),  # Remove the legend title
+        legend.text = element_text(size = 8),  # Make legend text smaller
+        legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
       )
     
     print(plot_predictions)
   })
+  
+  
   
  
   #####
@@ -1677,9 +1707,9 @@ server <- function(input, output, session) {
     
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
-      inp = rep(df_testdata$inp, 8),  # True form + 7 models
-      Value = c(df_testdata$true_form, rep(NA, 7 * nrow(df_testdata))),
-      Type = rep(c("True", paste0("Model_", 1:7)), each = nrow(df_testdata))
+      inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+      Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+      Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
     )
     
     # Initialize a matrix to store predictions
@@ -1702,34 +1732,41 @@ server <- function(input, output, session) {
       }
     }
     
-    # Update plot_data with predictions
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == paste0("Model_", i)] <- predictions[, i]
-    }
+    # Calculate the mean of the predictions for each point
+    mean_predictions <- rowMeans(predictions)
     
-    # Plot true form and predictions for the first 7 models
+    # Update plot_data with predictions and mean predictions
+    plot_data$Value[plot_data$Type == "Model"] <- rowMeans(predictions)
+    plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+    
+    # Plot true form, predictions for the first 7 models, and the mean model
     plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(size = 1) +
+      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
+      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
       labs(
         title = "True Form vs. Model Predictions",
         x = "x",
-        y = "y"
+        y = "y",
+        color = NULL  # Remove the legend title
       ) +
       scale_color_manual(values = c("True" = "black", 
-                                    "Model_1" = "pink", 
-                                    "Model_2" = "pink", 
-                                    "Model_3" = "pink", 
-                                    "Model_4" = "pink", 
-                                    "Model_5" = "pink", 
-                                    "Model_6" = "pink", 
-                                    "Model_7" = "pink")) +
+                                    "Model" = "pink", 
+                                    "Mean_Model" = "blue"),
+                         labels = c("True" = "True Form", 
+                                    "Model" = "Predictions", 
+                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "none"  # Hide the legend
+        legend.position = "top",  # Position the legend to the right
+        legend.title = element_blank(),  # Remove the legend title
+        legend.text = element_text(size = 8),  # Make legend text smaller
+        legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
       )
     
     print(plot_predictions)
   })
+  
+  
   
   
   
