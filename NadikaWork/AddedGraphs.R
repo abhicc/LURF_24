@@ -1,4 +1,3 @@
-
 library(shiny)
 library(ggplot2)
 library(FNN) # Ensure this library is loaded for KNN functionality
@@ -33,7 +32,7 @@ ui <- fluidPage(
                  column(3, plotOutput("tab1_plot2")),
                  column(3, plotOutput("tab1_plot3")),
                  column(3, plotOutput("tab1_plot4"))
-                 )
+               )
                ,
                fluidRow(
                  column(3, conditionalPanel(
@@ -560,7 +559,7 @@ server <- function(input, output, session) {
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$flexibility
+    # Get complexity from input$degree
     complexity <- 2
     
     # Create a data frame to store true values and predictions
@@ -571,57 +570,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
         title = "Flexibility = 2",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -630,13 +625,14 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
+  
   output$tab1_plot6 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$flexibility
-    complexity <- 3.5
+    # Get complexity from input$degree
+    complexity <- 3
     
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
@@ -646,57 +642,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
-        title = "Flexibility = 3.5",
+        title = "Flexibility = 3",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -705,12 +697,13 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
+  
   output$tab1_plot7 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$flexibility
+    # Get complexity from input$degree
     complexity <- 4
     
     # Create a data frame to store true values and predictions
@@ -721,57 +714,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
         title = "Flexibility = 4",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -780,12 +769,14 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
+  
+  
   output$tab1_plot8 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
-    # Get complexity from input$flexibility
+    # Get complexity from input$degree
     complexity <- 5
     
     # Create a data frame to store true values and predictions
@@ -796,57 +787,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
         title = "Flexibility = 5",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -854,6 +841,7 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
   
   ###################
   output$tab2_plot1 <- renderPlot({
@@ -1196,57 +1184,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
         title = "Degree = 1",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -1254,7 +1238,8 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
-  #
+  
+  
   output$tab2_plot6 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
@@ -1271,57 +1256,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
         title = "Degree = 3",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -1330,13 +1311,14 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
+  
   output$tab2_plot7 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
     # Get complexity from input$degree
-    complexity <- 4
+    complexity <- 3.5
     
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
@@ -1346,57 +1328,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
-        title = "Degree = 4",
+        title = "Degree = 3.5",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -1421,57 +1399,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
     
-    # Ensure there are enough predictions
-    num_models <- min(7, ncol(predictions))
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions[, 1:num_models])
+    mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:num_models) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
-    # Plot true form, predictions for the first num_models models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    # Plot true form, predictions for the first 7 models, and the mean model
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+      scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "blue")) +
       labs(
         title = "Degree = 5",
         x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
+        y = "y"
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -1479,7 +1453,6 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
-  
   
   
   
@@ -1834,54 +1807,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
+    
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
     mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
         title = "K = 5",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -1889,6 +1861,7 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
   
   output$tab3_plot6 <- renderPlot({
     # Get the current value of reactive data frame df
@@ -1906,54 +1879,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
+    
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
     mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
         title = "K = 7",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -1962,13 +1934,14 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
+  
   output$tab3_plot7 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
     df_testdata <- df()$test_data
     
     # Get complexity from input$k_value
-    complexity <- 9
+    complexity <- 11
     
     # Create a data frame to store true values and predictions
     plot_data <- data.frame(
@@ -1978,54 +1951,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
+    
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
     mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
-        title = "K = 9",
+        title = "K = 11",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -2033,6 +2005,7 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
   
   output$tab3_plot8 <- renderPlot({
     # Get the current value of reactive data frame df
@@ -2050,54 +2023,53 @@ server <- function(input, output, session) {
     )
     
     # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
     
-    for (i in 1:20) {
+    for (i in 1:7) {
       response_col <- paste0("response", i)
       
       if (model_type() == "Linear") {
         model <- lm(df_data[[response_col]] ~ inp, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Non-Linear") {
         model <- loess(df_data[[response_col]] ~ inp, span = 1/complexity, data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "Polynomial") {
         model <- lm(df_data[[response_col]] ~ poly(inp, complexity), data = df_data)
+        predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
       } else if (model_type() == "KNN") {
         knn_fit <- knn.reg(train = as.matrix(df_data$inp), test = as.matrix(df_testdata$inp), y = df_data[[response_col]], k = complexity)
         predictions[, i] <- knn_fit$pred
-        next
       }
-      
-      predictions[, i] <- predict(model, newdata = data.frame(inp = df_testdata$inp))
     }
+    
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions[, 1:7]),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
     # Calculate the mean of the predictions for each point
     mean_predictions <- rowMeans(predictions[, 1:7])
     
-    # Update plot_data with predictions and mean predictions
-    for (i in 1:7) {
-      plot_data$Value[plot_data$Type == "Model"] <- predictions[, i]
-    }
+    # Update plot_data with mean predictions
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
         title = "K = 13",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
-        legend.position = "top",  # Position the legend to the right
+        legend.position = "top",  # Position the legend to the top
         legend.title = element_blank(),  # Remove the legend title
         legend.text = element_text(size = 8),  # Make legend text smaller
         legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
@@ -2105,6 +2077,7 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
   
   #####
   
@@ -2450,29 +2423,28 @@ server <- function(input, output, session) {
       }
     }
     
-    # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions)
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
-    # Update plot_data with predictions and mean predictions
-    plot_data$Value[plot_data$Type == "Model"] <- rowMeans(predictions)
+    # Update plot_data with mean predictions
+    mean_predictions <- rowMeans(predictions)
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
         title = "Tree Depth = 2",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
         legend.position = "top",  # Position the legend to the right
@@ -2519,29 +2491,28 @@ server <- function(input, output, session) {
       }
     }
     
-    # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions)
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
-    # Update plot_data with predictions and mean predictions
-    plot_data$Value[plot_data$Type == "Model"] <- rowMeans(predictions)
+    # Update plot_data with mean predictions
+    mean_predictions <- rowMeans(predictions)
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
         title = "Tree Depth = 4",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
         legend.position = "top",  # Position the legend to the right
@@ -2552,6 +2523,8 @@ server <- function(input, output, session) {
     
     print(plot_predictions)
   })
+  
+  
   output$tab4_plot7 <- renderPlot({
     # Get the current value of reactive data frame df
     df_data <- df()$toy_data
@@ -2587,29 +2560,28 @@ server <- function(input, output, session) {
       }
     }
     
-    # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions)
+    # Convert predictions to long format for plotting
+    predictions_long <- data.frame(
+      inp = rep(df_testdata$inp, 7),
+      Value = as.vector(predictions),
+      Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+    )
     
-    # Update plot_data with predictions and mean predictions
-    plot_data$Value[plot_data$Type == "Model"] <- rowMeans(predictions)
+    # Update plot_data with mean predictions
+    mean_predictions <- rowMeans(predictions)
     plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
     
     # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
+    plot_predictions <- ggplot() +
+      geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+      geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+      geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
       labs(
         title = "Tree Depth = 5",
         x = "x",
         y = "y",
         color = NULL  # Remove the legend title
       ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
       theme_minimal() +
       theme(
         legend.position = "top",  # Position the legend to the right
@@ -2621,75 +2593,74 @@ server <- function(input, output, session) {
     print(plot_predictions)
   })
   
-  output$tab4_plot8 <- renderPlot({
-    # Get the current value of reactive data frame df
-    df_data <- df()$toy_data
-    df_testdata <- df()$test_data
-    
-    # Get complexity from input$tree_size
-    complexity <- 7
-    
-    # Create a data frame to store true values and predictions
-    plot_data <- data.frame(
-      inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
-      Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
-      Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
-    )
-    
-    # Initialize a matrix to store predictions
-    predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
-    
-    # Fit the models and store predictions
-    for (i in 1:7) {
-      response_col <- paste0("response", i)
-      
-      if (model_type() == "Regression Tree") {
-        # Construct the formula for the response variable
-        formula <- as.formula(paste(response_col, "~ inp"))
-        
-        # Fit the regression tree model with the specified max depth (complexity)
-        tree_model <- rpart(formula, data = df_data, 
-                            control = rpart.control(maxdepth = complexity, cp = 0, xval = 0, minbucket = 5))
-        
-        # Predict using the tree model
-        predictions[, i] <- predict(tree_model, newdata = data.frame(inp = df_testdata$inp))
-      }
-    }
-    
-    # Calculate the mean of the predictions for each point
-    mean_predictions <- rowMeans(predictions)
-    
-    # Update plot_data with predictions and mean predictions
-    plot_data$Value[plot_data$Type == "Model"] <- rowMeans(predictions)
-    plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
-    
-    # Plot true form, predictions for the first 7 models, and the mean model
-    plot_predictions <- ggplot(plot_data, aes(x = inp, y = Value, color = Type, group = Type)) +
-      geom_line(data = subset(plot_data, Type != "Mean_Model"), size = 1) +
-      geom_line(data = subset(plot_data, Type == "Mean_Model"), size = 1.5) +
-      labs(
-        title = "Tree Depth = 7",
-        x = "x",
-        y = "y",
-        color = NULL  # Remove the legend title
-      ) +
-      scale_color_manual(values = c("True" = "black", 
-                                    "Model" = "pink", 
-                                    "Mean_Model" = "blue"),
-                         labels = c("True" = "True Form", 
-                                    "Model" = "Predictions", 
-                                    "Mean_Model" = "Average Prediction")) +
-      theme_minimal() +
-      theme(
-        legend.position = "top",  # Position the legend to the right
-        legend.title = element_blank(),  # Remove the legend title
-        legend.text = element_text(size = 8),  # Make legend text smaller
-        legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
-      )
-    
-    print(plot_predictions)
-  }) 
   
+    output$tab4_plot8 <- renderPlot({
+      # Get the current value of reactive data frame df
+      df_data <- df()$toy_data
+      df_testdata <- df()$test_data
+      
+      # Get complexity from input$tree_size
+      complexity <- 7
+      
+      # Create a data frame to store true values and predictions
+      plot_data <- data.frame(
+        inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+        Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+        Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
+      )
+      
+      # Initialize a matrix to store predictions
+      predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
+      
+      # Fit the models and store predictions
+      for (i in 1:7) {
+        response_col <- paste0("response", i)
+        
+        if (model_type() == "Regression Tree") {
+          formula <- as.formula(paste(response_col, "~ inp"))
+          
+          # Fit the regression tree model with the specified max depth (complexity)
+          tree_model <- rpart(formula, data = df_data, 
+                              control = rpart.control(maxdepth = complexity, cp = 0, xval = 0, minbucket = 5))
+          
+          # Predict using the tree model
+          predictions[, i] <- predict(tree_model, newdata = data.frame(inp = df_testdata$inp))
+        }
+      }
+      
+      # Convert predictions to long format for plotting
+      predictions_long <- data.frame(
+        inp = rep(df_testdata$inp, 7),
+        Value = as.vector(predictions),
+        Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+      )
+      
+      # Update plot_data with mean predictions
+      mean_predictions <- rowMeans(predictions)
+      plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+      
+      # Plot true form, predictions for the first 7 models, and the mean model
+      plot_predictions <- ggplot() +
+        geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
+        geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
+        geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "blue", size = 1.5) +
+        labs(
+          title = "Tree Depth = 7",
+          x = "x",
+          y = "y",
+          color = NULL  # Remove the legend title
+        ) +
+        theme_minimal() +
+        theme(
+          legend.position = "top",  # Position the legend to the right
+          legend.title = element_blank(),  # Remove the legend title
+          legend.text = element_text(size = 8),  # Make legend text smaller
+          legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
+        )
+      
+      print(plot_predictions)
+    })
+    
   
 }
 
