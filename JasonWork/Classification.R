@@ -1,6 +1,8 @@
 library(shiny)
 library(ggplot2)
 library(mvtnorm)
+library(rpart)
+library(rpart.plot)
 
 # Define UI
 ui <- fluidPage(
@@ -30,8 +32,16 @@ ui <- fluidPage(
                              min = 1, max = 15, value = 5, step = 1),
                  fluidRow(
                    column(4, plotOutput("tab1_plot1")),
-                   column(4, plotOutput("tab1_plot2")),
-                   column(4, plotOutput("tab1_plot3"))
+                   column(4, plotOutput("tab1_plot2"))
+                 )
+        ),
+        tabPanel("Decision Tree",
+                 sliderInput("depth", "Tree-depth", 
+                             min = 2, max = 6, value = 3, step = 1),
+                 fluidRow(
+                   column(4, plotOutput("tab2_plot1")),
+                   column(4, plotOutput("tab2_plot2")),
+                   column(4, plotOutput("tab2_plot3"))
                  )
         )
       )
@@ -116,23 +126,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # Plot the first replicated training dataset
-  output$tab1_plot1 <- renderPlot({
-    data_list <- df()
-    x1 <- data_list$training_data$x1[,1]
-    x2 <- data_list$training_data$x2[,1]
-    y <- data_list$training_data$y[,1]
-    
-    df_plot <- data.frame(x1 = x1, x2 = x2, y_orig = y)
-    
-    ggplot(data = df_plot, aes(x = x1, y = x2, color = y_orig)) +
-      geom_point() +
-      labs(title = "Training Dataset", x = "X1", y = "X2", color = "Y") +
-      scale_color_manual(values = c("0" = "blue", "1" = "red"), labels = c("0", "1")) +
-      theme_minimal() +
-      xlim(-5, 5) +
-      ylim(-5, 5)
-  })
+ 
   
   output$tab1_plot2 <- renderPlot({
     data_list <- df()
@@ -171,15 +165,15 @@ server <- function(input, output, session) {
     ggplot(error_df, aes(x = k_value, y = avg_error)) +
       geom_line(color = "blue", size = 1) +  # Line graph
       geom_point(color = "red", size = 2) +  
-      labs(title = "Average Error vs K-value",
+      labs(title = "Test Error vs K-value",
            x = "K-value",
-           y = "Average Error") +
+           y = "Test Error") +
       theme_minimal()
   })
   
   
   
-  output$tab1_plot3 <- renderPlot({
+  output$tab1_plot1 <- renderPlot({
     data_list <- df()
     test_data <- data_list$test_data
     x_test <- test_data[, 1:2]
@@ -206,17 +200,123 @@ server <- function(input, output, session) {
     # Plot
     ggplot() +
       geom_tile(data = grid, aes(x = x1, y = x2, fill = prediction), alpha = 0.3) +
-      geom_point(data = test_data, aes(x = x1, y = x2, color = y_orig), size = 2) +
+      geom_point(data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y_orig = y_train),
+                 aes(x = x1, y = x2, color = y_orig), size = 2) +
       labs(title = paste("Decision Boundary with K =", k_fixed),
            x = "X1", y = "X2") +
       scale_fill_manual(values = c("blue", "red"), name = "Prediction") +
       scale_color_manual(values = c("blue", "red"), name = "Actual") +
       theme_minimal() +  
-      theme(legend.position = "right")
+      theme(legend.position = "top")
   })
   
   
+  #############
+  output$tab2_plot1 <- renderPlot({
+    data_list <- df()
+    x1 <- data_list$training_data$x1[,1]
+    x2 <- data_list$training_data$x2[,1]
+    y <- data_list$training_data$y[,1]
+    
+    df_plot <- data.frame(x1 = x1, x2 = x2, y_orig = y)
+    
+    ggplot(data = df_plot, aes(x = x1, y = x2, color = y_orig)) +
+      geom_point() +
+      labs(title = "Training Dataset", x = "X1", y = "X2", color = "Y") +
+      scale_color_manual(values = c("0" = "blue", "1" = "red"), labels = c("0", "1")) +
+      theme_minimal() +
+      xlim(-5, 5) +
+      ylim(-5, 5)
+  })
   
+  
+  output$tab2_plot2 <- renderPlot({
+    
+    
+    # Get the reactive data frame
+    data_list <- df()
+    test_data <- data_list$test_data
+    x_test <- test_data[, 1:2]
+    y_test <- test_data$y_orig
+    
+    # Get depth from input
+    depth <- input$depth
+    minbucket_value <- 1  # A small number for minbucket
+    
+    # Get the first replicated training set
+    x_train <- cbind(data_list$training_data$x1[, 1], data_list$training_data$x2[, 1])
+    y_train <- data_list$training_data$y[, 1]
+    
+    # Create a data frame for training
+    train_data <- data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y = y_train)
+    
+    # Fit a decision tree model with the specified depth
+    tree_model <- rpart(
+      formula = y ~ x1 + x2,       # Target variable y and predictors x1, x2
+      data = train_data,
+      control = rpart.control(maxdepth = depth, minbucket = minbucket_value, cp = 0, xval = 0), # No pruning, no cross-validation
+      method = "class"             # For classification
+    )
+    
+    # Plot the decision tree
+    rpart.plot(tree_model, main = paste("Decision Tree with Depth =", depth))
+  })
+  
+  
+  output$tab2_plot3 <- renderPlot({
+  
+    
+    data_list <- df()
+    test_data <- data_list$test_data
+    x_test <- test_data[, 1:2]
+    y_test <- test_data$y_orig
+    
+    # Range of depth values (you can adjust this range as needed)
+    depth_values <- seq(2, 6, by = 1)
+    avg_errors <- numeric(length(depth_values))
+    
+    # Loop through each depth value
+    for (depth in depth_values) {
+      accuracies <- numeric(ncol(data_list$training_data$x1))
+      
+      # Loop through each replicated training set
+      for (i in 1:ncol(data_list$training_data$x1)) {
+        x_train <- cbind(data_list$training_data$x1[, i], data_list$training_data$x2[, i])
+        y_train <- data_list$training_data$y[, i]
+        
+        # Create a data frame for the current training set
+        train_data <- data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y = y_train)
+        
+        # Fit decision tree model with controlled depth
+        tree_model <- rpart(
+          y ~ x1 + x2,
+          data = train_data,
+          control = rpart.control(maxdepth = depth, minbucket = 1, cp=0, xval=0)
+        )
+        
+        # Predict on test data
+        tree_pred <- predict(tree_model, newdata = data.frame(x1 = x_test[, 1], x2 = x_test[, 2]), type = "class")
+        accuracies[i] <- mean(tree_pred == y_test)
+      }
+      
+      # Compute average accuracy and error rate for current depth value
+      avg_accuracy <- mean(accuracies)
+      avg_error <- 1 - avg_accuracy
+      avg_errors[which(depth_values == depth)] <- avg_error
+    }
+    
+    # Create data frame for plotting
+    error_df <- data.frame(depth = depth_values, avg_error = avg_errors)
+    
+    # Plot average error vs depth using a line graph
+    ggplot(error_df, aes(x = depth, y = avg_error)) +
+      geom_line(color = "blue", size = 1) +  # Line graph
+      geom_point(color = "red", size = 2) +  
+      labs(title = "Test Error vs Tree Depth",
+           x = "Tree Depth",
+           y = "Test Error") +
+      theme_minimal()
+  })
   
   
   
