@@ -8,9 +8,9 @@ ui <- fluidPage(
       width = 3,
       
       # Dropdown menu to select between apps
-      selectInput("app_choice", "Choose App",
-                  choices = c("App 1", "App 2"),
-                  selected = "App 1"),
+      selectInput("app_choice", "Task",
+                  choices = c("Regression", "Classification"),
+                  selected = "Regression"),
       
       uiOutput("app_ui")  # Placeholder for app-specific UI
     ),
@@ -24,8 +24,8 @@ server <- function(input, output, session) {
   
   # Reactive for the selected app
   observe({
-    if (input$app_choice == "App 1") {
-      # Logic for App 1 UI
+    if (input$app_choice == "Regression") {
+      # Logic for Regression UI
       output$app_ui <- renderUI({
         tagList(
           selectInput("dataset", "Dataset",
@@ -234,7 +234,7 @@ server <- function(input, output, session) {
                "Regression Tree" = "Regression Tree")  # Default case if no tab is selected
       })
       
-      # Logic for App 1 server
+      # Logic for Regression server
       output$epsilon_slider <- renderUI({
         if (input$dataset == "Data set 2") {
           sliderInput("epsilon", "Variability", 
@@ -248,7 +248,7 @@ server <- function(input, output, session) {
         }
       })
       
-      # Add App 1 server logic here
+      # Add Regression server logic here
       # ...
       
       # Non-Linear Tab Plots
@@ -2702,8 +2702,8 @@ server <- function(input, output, session) {
       
       
       
-      } else if (input$app_choice == "App 2") {
-      # Logic for App 2 UI
+      } else if (input$app_choice == "Classification") {
+      # Logic for Classification UI
       output$app_ui <- renderUI({
         tagList(
           sliderInput("num_ob", "Number of observations",
@@ -2735,11 +2735,17 @@ server <- function(input, output, session) {
                    fluidRow(
                      column(10, plotOutput("tab22_plot2"))
                    )
+          ),
+          tabPanel("Logistic Regression",
+                   
+                   fluidRow(
+                     column(7, plotOutput("tab31_plot1"))
+                   )
           )
         )
       })
       
-      # Add App 2 server logic here
+      # Add Classification server logic here
       # ...
       
       
@@ -3057,6 +3063,49 @@ server <- function(input, output, session) {
           theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
         
       })
+      
+      output$tab31_plot1 <- renderPlot({
+        data_list <- df()
+        test_data <- data_list$test_data
+        x_test <- test_data[, 1:2]
+        y_test <- test_data$y_orig
+        
+        # Get the first replicated training set
+        x_train <- cbind(data_list$training_data$x1[, 1], data_list$training_data$x2[, 1])
+        y_train <- as.numeric(as.character(data_list$training_data$y[, 1]))  # Ensure y is numeric (0 and 1)
+        
+        # Generate a grid of values for x1 and x2
+        x1_range <- seq(min(c(x_train[, 1], x_test[, 1])) - 1, max(c(x_train[, 1], x_test[, 1])) + 1, length.out = 100)
+        x2_range <- seq(min(c(x_train[, 2], x_test[, 2])) - 1, max(c(x_train[, 2], x_test[, 2])) + 1, length.out = 100)
+        grid <- expand.grid(x1 = x1_range, x2 = x2_range)
+        
+        # Create a data frame for the current training set
+        train_data <- data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y = y_train)
+        
+        # Fit the logistic regression model
+        logit_model <- glm(y ~ x1 + x2, data = train_data, family = binomial)
+        
+        # Predict on the grid
+        grid$pred <- predict(logit_model, newdata = grid, type = "response")
+        
+        # Convert predictions to class labels for plotting
+        grid$prediction <- as.factor(ifelse(grid$pred > 0.5, "1", "0"))
+        
+        # Plot
+        ggplot() +
+          geom_tile(data = grid, aes(x = x1, y = x2, fill = prediction), alpha = 0.3) +
+          geom_point(data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y_orig = as.factor(y_train)),
+                     aes(x = x1, y = x2, color = y_orig), size = 2) +
+          labs(title = "Logistic Regression Decision Boundary",
+               x = "X1", y = "X2") +
+          scale_fill_manual(values = c("blue", "red"), name = "Prediction") +
+          scale_color_manual(values = c("blue", "red"), name = "Actual") +
+          theme_minimal() +  
+          theme(legend.position = "top")
+      })
+      
+      
+      
       
     }
   })
