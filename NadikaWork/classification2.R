@@ -20,7 +20,7 @@ ui <- fluidPage(
     
     mainPanel(
       fluidRow(
-        column(12, plotOutput("logistic_plot"))
+        column(7, plotOutput("logistic_plot"))
       )
     )
   )
