@@ -61,9 +61,9 @@ server <- function(input, output, session) {
   df <- reactive({
     set.seed(123)  # Set a fixed seed for reproducibility
     
-    num_training_points <- input$num_ob
+    num_training_points <- 100# input$num_ob
     num_test_points <- 500
-    noise <- input$epsilon
+    noise <- 0.5#input$epsilon
     num_rep_sets <- 50
     
     # Generating bivariate normal meta-means and 10 component means for each class
@@ -176,7 +176,8 @@ server <- function(input, output, session) {
            x = "K-value",
            y = "Error Rate") +
       theme_minimal() +
-      scale_color_manual(values = c("blue", "red"))
+      scale_color_manual(values = c("blue", "red"))+  
+      theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
   })
 
   
@@ -366,7 +367,9 @@ output$tab2_plot3 <- renderPlot({
            x = "Tree Depth",
            y = "Error Rate") +
       theme_minimal() +
-      scale_color_manual(values = c("blue", "red"))
+      scale_color_manual(values = c("blue", "red")) +  
+      theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
+    
   })
 
   
