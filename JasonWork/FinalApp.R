@@ -628,7 +628,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Flexibility = 2",
             x = "x",
@@ -700,7 +700,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Flexibility = 3",
             x = "x",
@@ -772,7 +772,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Flexibility = 4",
             x = "x",
@@ -845,7 +845,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Flexibility = 5",
             x = "x",
@@ -1242,7 +1242,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Degree = 1",
             x = "x",
@@ -1314,7 +1314,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Degree = 3",
             x = "x",
@@ -1386,7 +1386,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Degree = 3.5",
             x = "x",
@@ -1457,7 +1457,7 @@ server <- function(input, output, session) {
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
           geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
-          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "lightblue")) +
+          scale_color_manual(name = NULL, values = c("True Form" = "black", "Predictions" = "pink", "Average Prediction" = "orange")) +
           labs(
             title = "Degree = 5",
             x = "x",
@@ -1864,7 +1864,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "K = 5",
             x = "x",
@@ -1936,7 +1936,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "K = 7",
             x = "x",
@@ -2008,7 +2008,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "K = 11",
             x = "x",
@@ -2080,7 +2080,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "K = 13",
             x = "x",
@@ -2458,7 +2458,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "Tree Depth = 2",
             x = "x",
@@ -2526,7 +2526,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "Tree Depth = 4",
             x = "x",
@@ -2595,7 +2595,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "Tree Depth = 5",
             x = "x",
@@ -2663,7 +2663,7 @@ server <- function(input, output, session) {
         plot_predictions <- ggplot() +
           geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value), color = "black", size = 1) +
           geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model), color = "pink", size = 0.5) +
-          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "lightblue", size = 1.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value), color = "orange", size = 1.5) +
           labs(
             title = "Tree Depth = 7",
             x = "x",
