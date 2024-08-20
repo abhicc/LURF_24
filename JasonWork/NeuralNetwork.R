@@ -1,7 +1,7 @@
 library(shiny)
 library(ggplot2)
+library(nnet)
 library(mvtnorm)
-library(keras)
 
 # Define UI
 ui <- fluidPage(
@@ -17,13 +17,14 @@ ui <- fluidPage(
       sliderInput("epsilon", "Variability",
                   min = 0.2, max = 0.8, value = 0.4, step = 0.2),
       
-      sliderInput("node", "Number of Nodes", 
+      sliderInput("node", "Number of Nodes in Hidden Layer", 
                   min = 2, max = 10, value = 5, step = 1)
     ),
     
     mainPanel(
       fluidRow(
-        column(12, plotOutput("plot1"))
+        column(7, plotOutput("plot1")),
+        column(5, plotOutput("plot2"))
       )
     )
   )
@@ -60,48 +61,50 @@ server <- function(input, output, session) {
                        y = factor(rep(c("0", "1"), each=num_training_points/2), 
                                   levels = c("0", "1")))
     names(data) <- c("x1", "x2", "y")
-    data
+    list(training_data = data, test_data = data)  # Reuse training data as test data for simplicity
   })
   
   output$plot1 <- renderPlot({
-    data <- df()
+    data_list <- df()
+    train_data <- data_list$training_data
     
-    # Build the neural network model
-    model <- keras_model_sequential() %>%
-      layer_dense(units = input$node, activation = 'relu', input_shape = c(2)) %>%
-      layer_dense(units = 1, activation = 'sigmoid')
+    x_train <- train_data[, 1:2]
+    y_train <- as.numeric(as.character(train_data$y))  # Ensure y is numeric (0 and 1)
     
-    model %>% compile(
-      optimizer = 'adam',
-      loss = 'binary_crossentropy',
-      metrics = 'accuracy'
-    )
+    # Generate a grid of values for x1 and x2
+    x1_range <- seq(min(x_train[, 1]) - 1, max(x_train[, 1]) + 1, length.out = 100)
+    x2_range <- seq(min(x_train[, 2]) - 1, max(x_train[, 2]) + 1, length.out = 100)
+    grid <- expand.grid(x1 = x1_range, x2 = x2_range)
     
-    # Train the model
-    model %>% fit(
-      as.matrix(data[, c("x1", "x2")]), 
-      as.numeric(data$y) - 1,
-      epochs = 20,
-      batch_size = 32,
-      verbose = 0
-    )
+    # Fit the neural network model with nnet
+    model <- nnet(y ~ x1 + x2, data = train_data, size = input$node, 
+                  linout = FALSE, decay = 0.01, maxit = 1000)
     
-    # Generate grid for plotting decision boundary
-    x_seq <- seq(min(data$x1) - 1, max(data$x1) + 1, length.out = 100)
-    y_seq <- seq(min(data$x2) - 1, max(data$x2) + 1, length.out = 100)
-    grid <- expand.grid(x1 = x_seq, x2 = y_seq)
-    grid$prob <- model %>% predict(as.matrix(grid)) %>% as.vector()
-    grid$pred <- ifelse(grid$prob > 0.5, "1", "0")
+    # Predict on the grid
+    grid$prob <- predict(model, newdata = grid)
     
-    # Plot decision boundary
-    ggplot(data, aes(x = x1, y = x2, color = y)) +
-      geom_point() +
-      stat_contour(data = grid, aes(x = x1, y = x2, z = prob), color = 'blue') +
-      labs(title = "Decision Boundary of Neural Network",
+    # Convert predictions to class labels for plotting
+    grid$prediction <- as.factor(ifelse(grid$prob > 0.5, "1", "0"))
+    
+    # Plot
+    ggplot() +
+      geom_tile(data = grid, aes(x = x1, y = x2, fill = prediction), alpha = 0.3) +
+      geom_point(data = train_data, aes(x = x1, y = x2, color = y), size = 2) +
+      labs(title = "Neural Network Decision Boundary",
            x = "X1", y = "X2") +
-      scale_color_manual(values = c("red", "green")) +
-      theme_minimal()
+      scale_fill_manual(values = c("blue", "red"), name = "Prediction") +
+      scale_color_manual(values = c("blue", "red"), name = "Actual") +
+      theme_minimal() +  
+      theme(legend.position = "top")
   })
+  
+
+
+  
+
+
+
+  
 }
 
 # Run the application
