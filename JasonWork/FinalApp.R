@@ -1,4 +1,6 @@
 library(shiny)
+library(glmnet)
+
 
 ui <- fluidPage(
   titlePanel("BIAS-VARIANCE TRADEOFF VISUALIZATION"),
@@ -159,6 +161,39 @@ server <- function(input, output, session) {
                      ))
                    )
           )
+          ,
+          tabPanel("LASSO Regression",
+                   sliderInput("degreeL", "Degree", 
+                               min = 2, max = 7, value = 3, step = 1),
+                   checkboxInput("show_tab5_plot5", "Show True Model vs. Prediction Graphs", value = FALSE),
+                   sliderInput("lambda", "Lambda", 
+                              min = 0, max = 0.2, value = 0.1, step = 0.05),
+                   checkboxInput("show_tab5_plot5", "Show True Model vs. Prediction Graphs", value = FALSE),
+                   fluidRow(
+                     column(3, plotOutput("tab5_plot1")),
+                     column(3, plotOutput("tab5_plot2")),
+                     column(3, plotOutput("tab5_plot3")),
+                     column(3, plotOutput("tab5_plot4")))
+                   ,
+                   fluidRow(
+                     column(3, conditionalPanel(
+                       condition = "input.show_tab5_plot5 == true",
+                       plotOutput("tab5_plot5")
+                     )),
+                     column(3, conditionalPanel(
+                       condition = "input.show_tab5_plot5 == true",
+                       plotOutput("tab5_plot6")
+                     )),
+                     column(3, conditionalPanel(
+                       condition = "input.show_tab5_plot5 == true",
+                       plotOutput("tab5_plot7")
+                     )),
+                     column(3, conditionalPanel(
+                       condition = "input.show_tab5_plot5 == true",
+                       plotOutput("tab5_plot8")
+                     ))
+                   )
+          )
         )
       })
       # Reactive data generation
@@ -231,7 +266,8 @@ server <- function(input, output, session) {
                "Non-Linear" = "Non-Linear",
                "Polynomial" = "Polynomial",
                "KNN" = "KNN",
-               "Regression Tree" = "Regression Tree")  # Default case if no tab is selected
+               "Regression Tree" = "Regression Tree",
+               "LASSO Regression" = "LASSO Regression")  
       })
       
       # Logic for Regression server
@@ -266,7 +302,7 @@ server <- function(input, output, session) {
         
         if (input$dataset == "Data set 1") {
           p <- p + scale_y_continuous(limits = c(0, 5)) +
-            scale_x_continuous(limits = c(0, 15))
+            scale_x_continuous(limits = c(-5, 15))
         } else if (input$dataset == "Data set 2") {
           p <- p + scale_y_continuous(limits = c(3, 13)) +
             scale_x_continuous(limits = c(20, 40))
@@ -878,7 +914,7 @@ server <- function(input, output, session) {
         
         if (input$dataset == "Data set 1") {
           p <- p + scale_y_continuous(limits = c(0, 5)) +
-            scale_x_continuous(limits = c(0, 10))
+            scale_x_continuous(limits = c(-5, 10))
         } else if (input$dataset == "Data set 2") {
           p <- p + scale_y_continuous(limits = c(3, 13)) +
             scale_x_continuous(limits = c(20, 40))
@@ -1505,7 +1541,7 @@ server <- function(input, output, session) {
         # Conditional limits based on the dataset
         if (input$dataset == "Data set 1") {
           p <- p + scale_y_continuous(limits = c(0, 5)) +
-            scale_x_continuous(limits = c(0, 10))
+            scale_x_continuous(limits = c(5, 10))
         } else if (input$dataset == "Data set 2") {
           p <- p + scale_y_continuous(limits = c(3, 13)) +
             scale_x_continuous(limits = c(20, 40))
@@ -2115,7 +2151,7 @@ server <- function(input, output, session) {
         # Conditional limits based on the dataset
         if (input$dataset == "Data set 1") {
           p <- p + scale_y_continuous(limits = c(0, 5)) +
-            scale_x_continuous(limits = c(0, 10))
+            scale_x_continuous(limits = c(-5, 10))
         } else if (input$dataset == "Data set 2") {
           p <- p + scale_y_continuous(limits = c(3, 13)) +
             scale_x_continuous(limits = c(20, 40))
@@ -2681,13 +2717,61 @@ server <- function(input, output, session) {
         print(plot_predictions)
       })
       
+      output$tab5_plot1 <- renderPlot({
+        df_data <- df()$toy_data
+        
+        p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
+          geom_point() +
+          labs(title = "Training Data", y = "y", x = "x")
+        
+        if (input$dataset == "Data set 1") {
+          p <- p + scale_y_continuous(limits = c(0, 5)) +
+            scale_x_continuous(limits = c(-5, 10))
+        } else if (input$dataset == "Data set 2") {
+          p <- p + scale_y_continuous(limits = c(3, 13)) +
+            scale_x_continuous(limits = c(20, 40))
+        } else if (input$dataset == "Data set 3") {
+          p <- p + scale_y_continuous(limits = c(-30, 30)) +
+            scale_x_continuous(limits = c(-6, 6))
+        }
+        
+        if (model_type() == "LASSO Regression") {
+          
+          # Ensure input$degreeL is not NULL or length 0
+          if (!is.null(input$degreeL) && length(input$degreeL) > 0) {
+            
+            # Polynomial regression using Lasso
+            
+            # Prepare the polynomial features
+            X_poly <- poly(df_data$inp, input$degreeL, raw = TRUE)
+            
+            # Fit the Lasso model using the specified lambda from input$lambda
+            lasso_model <- glmnet(X_poly, df_data$response1, alpha = 1, lambda = input$lambda)
+            
+            # Predict using the Lasso model with the specified lambda
+            lasso_predictions <- predict(lasso_model, s = input$lambda, newx = X_poly)
+            
+            # Create a data frame for Lasso predictions
+            df_lasso <- data.frame(inp = df_data$inp, response1 = as.vector(lasso_predictions))
+            
+            # Add the Lasso regression line to the plot
+            p <- p + geom_line(data = df_lasso, aes(x = inp, y = response1, color = "Lasso model"), size = 1, show.legend = FALSE)
+            
+          } 
+        }
+        
+        print(p)
+      })
       
       
       
       
       
       
-      #
+      
+      
+      
+      #####
       #
       #
       #
