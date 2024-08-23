@@ -1,11 +1,12 @@
+install.packages("torch")
 library(shiny)
 library(ggplot2)
-library(nnet)
+library(torch)
 library(mvtnorm)
 
 # Define UI
 ui <- fluidPage(
-  titlePanel("Neural Network Model Visualization"),
+  titlePanel("Neural Network Model Visualization with torch"),
   
   sidebarLayout(
     sidebarPanel(
@@ -30,7 +31,6 @@ ui <- fluidPage(
   )
 )
 
-# Define server logic
 server <- function(input, output, session) {
   
   # Reactive data generation
@@ -43,8 +43,8 @@ server <- function(input, output, session) {
     num_rep_sets <- 50
     
     # Generating bivariate normal meta-means and 10 component means for each class
-    mu_class0 <- c(0.6, -0.6)
-    mu_class1 <- c(-0.6, 0.6)
+    mu_class0 <- c(1, -1)
+    mu_class1 <- c(-1, 1)
     cov_mat <- matrix(c(1,0,0,1), nrow=2, ncol=2)
     means_class0 <- rmvnorm(n = 10, mean = mu_class0, sigma = cov_mat)
     means_class1 <- rmvnorm(n = 10, mean = mu_class1, sigma = cov_mat)
@@ -108,14 +108,47 @@ server <- function(input, output, session) {
     x2_range <- seq(min(x_train$x2) - 1, max(x_train$x2) + 1, length.out = 100)
     grid <- expand.grid(x1 = x1_range, x2 = x2_range)
     
-    model <- nnet(y ~ x1 + x2, data = x_train, size = input$node, 
-                  linout = FALSE, decay = 0.01, maxit = 1000)
+    # Prepare data for torch model
+    x_train_torch <- torch_tensor(as.matrix(x_train[, c("x1", "x2")]), dtype = torch_float())
+    y_train_torch <- torch_tensor(x_train$y, dtype = torch_float())
+    
+    # Define the neural network model
+    model <- nn_module(
+      "NN_Model",
+      initialize = function() {
+        self$fc1 <- nn_linear(2, input$node)
+        self$fc2 <- nn_linear(input$node, 1)
+        self$activation <- nn_sigmoid()
+      },
+      forward = function(x) {
+        x %>%
+          self$fc1() %>%
+          self$activation() %>%
+          self$fc2() %>%
+          self$activation()
+      }
+    )
+    
+    # Create the model
+    net <- model()
+    
+    # Define loss and optimizer
+    loss_fn <- nnf_binary_cross_entropy
+    optimizer <- optim_adam(net$parameters, lr = 0.01)
+    
+    # Training loop
+    for (epoch in 1:10) {
+      optimizer$zero_grad()
+      output <- net(x_train_torch)
+      loss <- loss_fn(output, y_train_torch)
+      loss$backward()
+      optimizer$step()
+    }
     
     # Predict on the grid
-    grid$prob <- predict(model, newdata = grid)
-    
-    # Convert predictions to class labels for plotting
-    grid$prediction <- as.factor(ifelse(grid$prob > 0.5, "1", "0"))
+    grid_torch <- torch_tensor(as.matrix(grid), dtype = torch_float())
+    grid_prob <- net(grid_torch)$detach() %>% as.array()
+    grid$prediction <- as.factor(ifelse(grid_prob > 0.5, "1", "0"))
     
     # Plot
     ggplot() +
@@ -149,55 +182,79 @@ server <- function(input, output, session) {
       for (i in 1:ncol(data_list$training_data$x1)) {
         # Extract training data for the current replication
         x_train <- data.frame(x1 = data_list$training_data$x1[, i], x2 = data_list$training_data$x2[, i])
-        y_train <- factor(data_list$training_data$y[, i])  # Ensure y_train is a factor
+        y_train <- as.numeric(as.character(data_list$training_data$y[, i]))  # Ensure y_train is numeric
         
-        # Fit the neural network model using the 'nnet' package
-        model <- nnet(y_train ~ x1 + x2, data = x_train, size = nodes, 
-                      linout = FALSE, decay = 0.01, maxit = 1000)
+        # Prepare data for torch model
+        x_train_torch <- torch_tensor(as.matrix(x_train), dtype = torch_float())
+        y_train_torch <- torch_tensor(y_train, dtype = torch_float())
         
-        # Predict on test data
-        grid <- data.frame(x1 = x_test[, "x1"], x2 = x_test[, "x2"])
-        test_pred_prob <- predict(model, newdata = grid, type = "raw")
-        test_pred <- ifelse(test_pred_prob > 0.5, "1", "0")
-        test_errors[i] <- mean(test_pred != y_test, na.rm = TRUE)
+        # Define the neural network model
+        model <- nn_module(
+          "NN_Model",
+          initialize = function() {
+            self$fc1 <- nn_linear(2, nodes)
+            self$fc2 <- nn_linear(nodes, 1)
+            self$activation <- nn_sigmoid()
+          },
+          forward = function(x) {
+            x %>%
+              self$fc1() %>%
+              self$activation() %>%
+              self$fc2() %>%
+              self$activation()
+          }
+        )
         
-        # Predict on training data
-        train_pred_prob <- predict(model, newdata = x_train, type = "raw")
-        train_pred <- ifelse(train_pred_prob > 0.5, "1", "0")
-        train_errors[i] <- mean(train_pred != y_train, na.rm = TRUE)
+        # Create the model
+        net <- model()
+        
+        # Define loss and optimizer
+        loss_fn <- nnf_binary_cross_entropy
+        optimizer <- optim_adam(net$parameters, lr = 0.01)
+        
+        # Training loop
+        for (epoch in 1:10) {
+          optimizer$zero_grad()
+          output <- net(x_train_torch)
+          loss <- loss_fn(output, y_train_torch)
+          loss$backward()
+          optimizer$step()
+        }
+        
+        # Compute training and test errors
+        x_test_torch <- torch_tensor(as.matrix(x_test), dtype = torch_float())
+        y_test_torch <- torch_tensor(as.numeric(as.character(y_test)), dtype = torch_float())
+        
+        train_predictions <- net(x_train_torch)$detach() %>% as.array()
+        train_predictions <- ifelse(train_predictions > 0.5, 1, 0)
+        train_errors[i] <- mean(train_predictions != y_train)
+        
+        test_predictions <- net(x_test_torch)$detach() %>% as.array()
+        test_predictions <- ifelse(test_predictions > 0.5, 1, 0)
+        test_errors[i] <- mean(test_predictions != as.numeric(as.character(y_test)))
       }
       
-      # Compute average errors for current number of nodes
-      avg_test_errors[which(node_values == nodes)] <- mean(test_errors, na.rm = TRUE)
-      avg_train_errors[which(node_values == nodes)] <- mean(train_errors, na.rm = TRUE)
+      avg_train_errors[which(node_values == nodes)] <- mean(train_errors)
+      avg_test_errors[which(node_values == nodes)] <- mean(test_errors)
     }
     
-    # Create data frame for plotting
-    error_df <- data.frame(
-      nodes = rep(node_values, 2),
-      avg_error = c(avg_test_errors, avg_train_errors),
-      error_type = rep(c("Test Error", "Training Error"), each = length(node_values))
+    # Plot the average training and test errors
+    error_data <- data.frame(
+      Nodes = node_values,
+      TrainError = avg_train_errors,
+      TestError = avg_test_errors
     )
     
-    # Plot average error vs number of nodes using a line graph
-    ggplot(error_df, aes(x = nodes, y = avg_error, color = error_type)) +
-      geom_line(size = 1) +  # Line graph for both error types
-      geom_point(size = 2) +  # Points for both error types
-      labs(title = "Test and Training Error vs Number of Nodes",
-           x = "Number of Nodes",
-           y = "Error Rate") +
-      theme_minimal() +
-      scale_color_manual(values = c("blue", "red")) +
-      theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
+    ggplot(error_data, aes(x = Nodes)) +
+      geom_line(aes(y = TrainError, color = "Training Error")) +
+      geom_line(aes(y = TestError, color = "Test Error")) +
+      labs(title = "Average Training and Test Errors vs. Number of Nodes",
+           x = "Number of Nodes", y = "Error") +
+      scale_color_manual(values = c("blue", "red"), name = "Error Type") +
+      theme_minimal()
   })
-  
-
-  
-
-
-
-  
 }
+
 
 # Run the application
 shinyApp(ui = ui, server = server)

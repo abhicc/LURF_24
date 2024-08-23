@@ -1,5 +1,7 @@
 library(shiny)
 library(glmnet)
+install.packages("rpart")
+library(rpart)
 
 
 ui <- fluidPage(
@@ -163,11 +165,9 @@ server <- function(input, output, session) {
           )
           ,
           tabPanel("LASSO Regression",
-                   sliderInput("degreeL", "Degree", 
-                               min = 2, max = 7, value = 3, step = 1),
-                   checkboxInput("show_tab5_plot5", "Show True Model vs. Prediction Graphs", value = FALSE),
+                   
                    sliderInput("lambda", "Lambda", 
-                              min = 0, max = 0.2, value = 0.1, step = 0.05),
+                              min = 0, max = 0.14, value = 0.04, step = 0.02),
                    checkboxInput("show_tab5_plot5", "Show True Model vs. Prediction Graphs", value = FALSE),
                    fluidRow(
                      column(3, plotOutput("tab5_plot1")),
@@ -2737,40 +2737,598 @@ server <- function(input, output, session) {
         
         if (model_type() == "LASSO Regression") {
           
-          # Ensure input$degreeL is not NULL or length 0
-          if (!is.null(input$degreeL) && length(input$degreeL) > 0) {
-            
-            # Polynomial regression using Lasso
-            
-            # Prepare the polynomial features
-            X_poly <- poly(df_data$inp, input$degreeL, raw = TRUE)
-            
-            # Fit the Lasso model using the specified lambda from input$lambda
-            lasso_model <- glmnet(X_poly, df_data$response1, alpha = 1, lambda = input$lambda)
-            
-            # Predict using the Lasso model with the specified lambda
-            lasso_predictions <- predict(lasso_model, s = input$lambda, newx = X_poly)
-            
-            # Create a data frame for Lasso predictions
-            df_lasso <- data.frame(inp = df_data$inp, response1 = as.vector(lasso_predictions))
-            
-            # Add the Lasso regression line to the plot
-            p <- p + geom_line(data = df_lasso, aes(x = inp, y = response1, color = "Lasso model"), size = 1, show.legend = FALSE)
-            
-          } 
+          # Polynomial degree fixed at 5
+          degreeL <- 5
+          
+          # Prepare the polynomial features
+          X_poly <- poly(df_data$inp, degreeL, raw = TRUE)
+          
+          # Fit the Lasso model using the specified lambda from input$lambda
+          lasso_model <- glmnet(X_poly, df_data$response1, alpha = 1, lambda = input$lambda)
+          
+          # Predict using the Lasso model with the specified lambda
+          lasso_predictions <- predict(lasso_model, s = input$lambda, newx = X_poly)
+          
+          # Create a data frame for Lasso predictions
+          df_lasso <- data.frame(inp = df_data$inp, response1 = as.vector(lasso_predictions))
+          
+          # Add the Lasso regression line to the plot
+          p <- p + geom_line(data = df_lasso, aes(x = inp, y = response1, color = "Lasso model"), size = 1, show.legend = FALSE)
+          
         }
         
         print(p)
       })
       
       
+  
+      
+      
+      output$tab5_plot2 <- renderPlot({
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Initialize a data frame to store bias and variance for different lambda values
+        metrics <- data.frame(
+          Complexity = numeric(),
+          Metric = character(),
+          Value = numeric()
+        )
+        
+        # Define a sequence of lambda values
+        lambda_values <- seq(0, 0.14, by = 0.02)
+        
+        # Loop over each lambda value
+        for (lambda in lambda_values) {
+          # Store predictions for each lambda value
+          predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+          
+          # Loop over each sample to fit a Lasso model and obtain predictions
+          for (i in 1:20) {
+            # Extract the ith sample
+            sample_data <- df_data[[i + 2]]  # Adjust column index if needed
+            
+            # Prepare the data for Lasso regression (polynomial degree 5)
+            X_poly <- model.matrix(~ poly(df_data$inp, 5), data = df_data)[, -1]  # Design matrix
+            y <- sample_data  # Response variable
+            newx <- model.matrix(~ poly(df_testdata$inp, 5), data = df_testdata)[, -1]  # Test design matrix
+            
+            # Fit the Lasso regression model
+            lasso_model <- glmnet(X_poly, y, alpha = 1, lambda = lambda)
+            
+            # Predict using the Lasso model
+            predictions[, i] <- predict(lasso_model, newx = newx)[, 1]  # Assuming predictions for the first lambda
+          }
+          
+          # Calculate average predictions
+          avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+          
+          # Ensure true_form is correctly aligned with the predictions
+          true_form <- df_testdata$true_form
+          
+          # Calculate bias
+          bias <- avg_predictions - true_form
+          
+          # Calculate squared bias
+          squared_bias <- bias^2
+          
+          # Calculate overall squared bias
+          overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+          
+          # Calculate variances of predictions
+          prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+          
+          # Calculate overall variance
+          overall_variance <- mean(prediction_vars, na.rm = TRUE)
+          
+          # Store metrics for current lambda value
+          metrics <- rbind(
+            metrics,
+            data.frame(Complexity = lambda, Metric = "Bias", Value = overall_squared_bias),
+            data.frame(Complexity = lambda, Metric = "Variance", Value = overall_variance)
+          )
+        }
+        
+        # Plot Bias
+        plot_bias <- ggplot(metrics[metrics$Metric == "Bias", ], aes(x = as.factor(Complexity), y = Value)) +
+          geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8, fill = "blue") +
+          labs(
+            title = "Bias",
+            x = "Lambda",
+            y = "Bias"
+          ) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                legend.position = "none")
+        
+        print(plot_bias)
+      })
+      
+      
+      output$tab5_plot3 <- renderPlot({
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Initialize a data frame to store bias and variance for different lambda values
+        metrics <- data.frame(
+          Complexity = numeric(),
+          Metric = character(),
+          Value = numeric()
+        )
+        
+        # Define a sequence of lambda values
+        lambda_values <- seq(0, 0.14, by = 0.02)
+        
+        # Loop over each lambda value
+        for (lambda in lambda_values) {
+          # Store predictions for each lambda value
+          predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+          
+          # Loop over each sample to fit a Lasso model and obtain predictions
+          for (i in 1:20) {
+            # Extract the ith sample
+            sample_data <- df_data[[i + 2]]  # Adjust column index if needed
+            
+            # Prepare the data for Lasso regression (polynomial degree 5)
+            X_poly <- model.matrix(~ poly(df_data$inp, 5), data = df_data)[, -1]  # Design matrix
+            y <- sample_data  # Response variable
+            newx <- model.matrix(~ poly(df_testdata$inp, 5), data = df_testdata)[, -1]  # Test design matrix
+            
+            # Fit the Lasso regression model
+            lasso_model <- glmnet(X_poly, y, alpha = 1, lambda = lambda)
+            
+            # Predict using the Lasso model
+            predictions[, i] <- predict(lasso_model, newx = newx)[, 1]  # Assuming predictions for the first lambda
+          }
+          
+          # Calculate average predictions
+          avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+          
+          # Ensure true_form is correctly aligned with the predictions
+          true_form <- df_testdata$true_form
+          
+          # Calculate bias
+          bias <- avg_predictions - true_form
+          
+          # Calculate squared bias
+          squared_bias <- bias^2
+          
+          # Calculate overall squared bias
+          overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+          
+          # Calculate variances of predictions
+          prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+          
+          # Calculate overall variance
+          overall_variance <- mean(prediction_vars, na.rm = TRUE)
+          
+          # Store metrics for current lambda value
+          metrics <- rbind(
+            metrics,
+            data.frame(Complexity = lambda, Metric = "Bias", Value = overall_squared_bias),
+            data.frame(Complexity = lambda, Metric = "Variance", Value = overall_variance)
+          )
+        }
+        
+        # Plot Variance
+        plot_Variance <- ggplot(metrics[metrics$Metric == "Variance", ], aes(x = as.factor(Complexity), y = Value)) +
+          geom_bar(stat = "identity", position = "dodge", width = 0.5, alpha = 0.8, fill = "red") +
+          labs(
+            title = "Variance",
+            x = "Lambda",
+            y = "Variance"
+          ) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                legend.position = "none")
+        
+        print(plot_Variance)
+      })
+      
+
+      
+      
+      output$tab5_plot4 <- renderPlot({
+        
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Initialize a data frame to store bias and variance for different lambda values
+        metrics <- data.frame(
+          Complexity = numeric(),
+          Metric = character(),
+          Value = numeric()
+        )
+        
+        # Define the range of lambda values for Lasso regression
+        lambda_values <- seq(0, 0.14, by = 0.02)
+        
+        for (lambda in lambda_values) {
+          # Store predictions and training MSEs for each lambda
+          predictions <- matrix(nrow = nrow(df_testdata), ncol = 20)
+          training_mse_list <- numeric(20)
+          
+          for (i in 1:20) {
+            response_col <- paste0("response", i)
+            
+            # Prepare the data for Lasso regression (polynomial degree 5)
+            X_poly <- model.matrix(~ poly(df_data$inp, 5, raw = TRUE), data = df_data)[, -1]  # Design matrix
+            y <- df_data[[response_col]]  # Response variable
+            
+            newx <- model.matrix(~ poly(df_testdata$inp, 5, raw = TRUE), data = df_testdata)[, -1]  # Test design matrix
+            
+            # Fit the Lasso regression model using the specified lambda
+            lasso_model <- glmnet(X_poly, y, alpha = 1, lambda = lambda)
+            
+            # Predict using the Lasso model
+            predictions[, i] <- predict(lasso_model, newx = newx)[, 1]
+            
+            # Predict on training data for MSE calculation
+            training_preds <- predict(lasso_model, newx = X_poly)[, 1]
+            training_mse_list[i] <- mean((y - training_preds)^2)
+          }
+          
+          # Calculate average predictions
+          avg_predictions <- rowMeans(predictions, na.rm = TRUE)
+          
+          # Ensure true_form is correctly aligned with the predictions
+          true_form <- df_testdata$true_form
+          
+          # Calculate bias
+          bias <- avg_predictions - true_form
+          squared_bias <- bias^2
+          overall_squared_bias <- mean(squared_bias, na.rm = TRUE)
+          
+          # Calculate variances of predictions
+          prediction_vars <- apply(predictions, 1, var, na.rm = TRUE)
+          overall_variance <- mean(prediction_vars, na.rm = TRUE)
+          
+          # Calculate MSE
+          test_MSE <- overall_variance + overall_squared_bias + (input$epsilon)^2
+          training_MSE <- mean(training_mse_list, na.rm = TRUE)
+          
+          # Store metrics for current lambda value
+          metrics <- rbind(
+            metrics,
+            data.frame(Complexity = lambda, Metric = "test MSE", Value = test_MSE),
+            data.frame(Complexity = lambda, Metric = "training MSE", Value = training_MSE)
+          )
+        }
+        
+        # Plot training and test MSE
+        plot_mse <- ggplot(metrics, aes(x = as.factor(Complexity), y = Value, color = Metric, group = Metric)) +
+          geom_line(size = 1) +
+          geom_point(size = 2) +
+          labs(
+            title = "Training MSE vs. Test MSE",
+            x = "Lambda",
+            y = "Mean Squared Error"
+          ) +
+          theme_minimal() +
+          scale_color_manual(values = c("test MSE" = "purple", "training MSE" = "green")) +
+          theme(
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "top"  # Move legend to the top
+          )
+        
+        print(plot_mse)
+      })
+      
+      
+      output$tab5_plot6 <- renderPlot({
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Set lambda to 0 for this plot
+        lambda <- 0.02
+        
+        # Define the polynomial degree for Lasso regression
+        complexity <- 5
+        
+        # Prepare data for Lasso regression (polynomial degree 5)
+        X_poly_test <- model.matrix(~ poly(df_testdata$inp, complexity, raw = TRUE), data = df_testdata)[, -1]  # Test design matrix
+        
+        # Create a data frame to store true values and predictions
+        plot_data <- data.frame(
+          inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+          Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+          Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
+        )
+        
+        # Initialize a matrix to store predictions
+        predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
+        
+        for (i in 1:7) {
+          # Define the response column
+          response_col <- paste0("response", i)
+          
+          # Get the training response variable for this sample
+          y <- df_data[[response_col]]
+          
+          # Prepare the training design matrix for this sample
+          X_poly_train <- model.matrix(~ poly(df_data$inp, complexity, raw = TRUE), data = df_data)[, -1]  # Training design matrix
+          
+          # Fit Lasso model with lambda = 0
+          lasso_model <- glmnet(X_poly_train, y, alpha = 1, lambda = lambda)
+          
+          # Predict using the Lasso model
+          predictions[, i] <- predict(lasso_model, newx = X_poly_test)[, 1]
+        }
+        
+        # Convert predictions to long format for plotting
+        predictions_long <- data.frame(
+          inp = rep(df_testdata$inp, 7),
+          Value = as.vector(predictions[, 1:7]),
+          Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+        )
+        
+        # Calculate the mean of the predictions
+        mean_predictions <- rowMeans(predictions, na.rm = TRUE)
+        
+        # Update plot_data with mean predictions
+        plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+        
+        # Plot true form, Lasso model predictions, and the mean model
+        plot_predictions <- ggplot() +
+          geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+          geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+          labs(
+            title = "Lasso Regression, Lambda = 0.02",
+            x = "x",
+            y = "y",
+            color = NULL  # Remove the legend title
+          ) +
+          theme_minimal() +
+          theme(
+            legend.position = "top",  # Position the legend to the top
+            legend.title = element_blank(),  # Remove the legend title
+            legend.text = element_text(size = 8),  # Make legend text smaller
+            legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
+          ) +
+          scale_color_manual(values = c("Average Prediction" = "orange", "Predictions" = "pink", "True Form" = "black"))
+        
+        print(plot_predictions)
+      })
+      
+      output$tab5_plot5 <- renderPlot({
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Set lambda to 0 for this plot
+        lambda <- 0
+        
+        # Define the polynomial degree for Lasso regression
+        complexity <- 5
+        
+        # Prepare data for Lasso regression (polynomial degree 5)
+        X_poly_test <- model.matrix(~ poly(df_testdata$inp, complexity, raw = TRUE), data = df_testdata)[, -1]  # Test design matrix
+        
+        # Create a data frame to store true values and predictions
+        plot_data <- data.frame(
+          inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+          Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+          Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
+        )
+        
+        # Initialize a matrix to store predictions
+        predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
+        
+        for (i in 1:7) {
+          # Define the response column
+          response_col <- paste0("response", i)
+          
+          # Get the training response variable for this sample
+          y <- df_data[[response_col]]
+          
+          # Prepare the training design matrix for this sample
+          X_poly_train <- model.matrix(~ poly(df_data$inp, complexity, raw = TRUE), data = df_data)[, -1]  # Training design matrix
+          
+          # Fit Lasso model with lambda = 0
+          lasso_model <- glmnet(X_poly_train, y, alpha = 1, lambda = lambda)
+          
+          # Predict using the Lasso model
+          predictions[, i] <- predict(lasso_model, newx = X_poly_test)[, 1]
+        }
+        
+        # Convert predictions to long format for plotting
+        predictions_long <- data.frame(
+          inp = rep(df_testdata$inp, 7),
+          Value = as.vector(predictions[, 1:7]),
+          Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+        )
+        
+        # Calculate the mean of the predictions
+        mean_predictions <- rowMeans(predictions, na.rm = TRUE)
+        
+        # Update plot_data with mean predictions
+        plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+        
+        # Plot true form, Lasso model predictions, and the mean model
+        plot_predictions <- ggplot() +
+          geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+          geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+          labs(
+            title = "Lasso Regression, Lambda = 0",
+            x = "x",
+            y = "y",
+            color = NULL  # Remove the legend title
+          ) +
+          theme_minimal() +
+          theme(
+            legend.position = "top",  # Position the legend to the top
+            legend.title = element_blank(),  # Remove the legend title
+            legend.text = element_text(size = 8),  # Make legend text smaller
+            legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
+          ) +
+          scale_color_manual(values = c("Average Prediction" = "orange", "Predictions" = "pink", "True Form" = "black"))
+        
+        print(plot_predictions)
+      })
       
       
       
       
+      output$tab5_plot7 <- renderPlot({
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Set lambda to 0 for this plot
+        lambda <- 0.04
+        
+        # Define the polynomial degree for Lasso regression
+        complexity <- 5
+        
+        # Prepare data for Lasso regression (polynomial degree 5)
+        X_poly_test <- model.matrix(~ poly(df_testdata$inp, complexity, raw = TRUE), data = df_testdata)[, -1]  # Test design matrix
+        
+        # Create a data frame to store true values and predictions
+        plot_data <- data.frame(
+          inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+          Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+          Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
+        )
+        
+        # Initialize a matrix to store predictions
+        predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
+        
+        for (i in 1:7) {
+          # Define the response column
+          response_col <- paste0("response", i)
+          
+          # Get the training response variable for this sample
+          y <- df_data[[response_col]]
+          
+          # Prepare the training design matrix for this sample
+          X_poly_train <- model.matrix(~ poly(df_data$inp, complexity, raw = TRUE), data = df_data)[, -1]  # Training design matrix
+          
+          # Fit Lasso model with lambda = 0
+          lasso_model <- glmnet(X_poly_train, y, alpha = 1, lambda = lambda)
+          
+          # Predict using the Lasso model
+          predictions[, i] <- predict(lasso_model, newx = X_poly_test)[, 1]
+        }
+        
+        # Convert predictions to long format for plotting
+        predictions_long <- data.frame(
+          inp = rep(df_testdata$inp, 7),
+          Value = as.vector(predictions[, 1:7]),
+          Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+        )
+        
+        # Calculate the mean of the predictions
+        mean_predictions <- rowMeans(predictions, na.rm = TRUE)
+        
+        # Update plot_data with mean predictions
+        plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+        
+        # Plot true form, Lasso model predictions, and the mean model
+        plot_predictions <- ggplot() +
+          geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+          geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+          labs(
+            title = "Lasso Regression, Lambda = 0.04",
+            x = "x",
+            y = "y",
+            color = NULL  # Remove the legend title
+          ) +
+          theme_minimal() +
+          theme(
+            legend.position = "top",  # Position the legend to the top
+            legend.title = element_blank(),  # Remove the legend title
+            legend.text = element_text(size = 8),  # Make legend text smaller
+            legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
+          ) +
+          scale_color_manual(values = c("Average Prediction" = "orange", "Predictions" = "pink", "True Form" = "black"))
+        
+        print(plot_predictions)
+      })
       
       
-      
+      output$tab5_plot8 <- renderPlot({
+        # Get the current value of reactive data frame df
+        df_data <- df()$toy_data
+        df_testdata <- df()$test_data
+        
+        # Set lambda to 0 for this plot
+        lambda <- 0.08
+        
+        # Define the polynomial degree for Lasso regression
+        complexity <- 5
+        
+        # Prepare data for Lasso regression (polynomial degree 5)
+        X_poly_test <- model.matrix(~ poly(df_testdata$inp, complexity, raw = TRUE), data = df_testdata)[, -1]  # Test design matrix
+        
+        # Create a data frame to store true values and predictions
+        plot_data <- data.frame(
+          inp = rep(df_testdata$inp, 9),  # True form + 7 models + mean model
+          Value = c(df_testdata$true_form, rep(NA, 8 * nrow(df_testdata))),
+          Type = rep(c("True", rep("Model", 7), "Mean_Model"), each = nrow(df_testdata))
+        )
+        
+        # Initialize a matrix to store predictions
+        predictions <- matrix(nrow = nrow(df_testdata), ncol = 7)
+        
+        for (i in 1:7) {
+          # Define the response column
+          response_col <- paste0("response", i)
+          
+          # Get the training response variable for this sample
+          y <- df_data[[response_col]]
+          
+          # Prepare the training design matrix for this sample
+          X_poly_train <- model.matrix(~ poly(df_data$inp, complexity, raw = TRUE), data = df_data)[, -1]  # Training design matrix
+          
+          # Fit Lasso model with lambda = 0
+          lasso_model <- glmnet(X_poly_train, y, alpha = 1, lambda = lambda)
+          
+          # Predict using the Lasso model
+          predictions[, i] <- predict(lasso_model, newx = X_poly_test)[, 1]
+        }
+        
+        # Convert predictions to long format for plotting
+        predictions_long <- data.frame(
+          inp = rep(df_testdata$inp, 7),
+          Value = as.vector(predictions[, 1:7]),
+          Model = rep(paste0("Model", 1:7), each = nrow(df_testdata))
+        )
+        
+        # Calculate the mean of the predictions
+        mean_predictions <- rowMeans(predictions, na.rm = TRUE)
+        
+        # Update plot_data with mean predictions
+        plot_data$Value[plot_data$Type == "Mean_Model"] <- mean_predictions
+        
+        # Plot true form, Lasso model predictions, and the mean model
+        plot_predictions <- ggplot() +
+          geom_line(data = plot_data[plot_data$Type == "True", ], aes(x = inp, y = Value, color = "True Form"), size = 1) +
+          geom_line(data = predictions_long, aes(x = inp, y = Value, group = Model, color = "Predictions"), size = 0.5) +
+          geom_line(data = plot_data[plot_data$Type == "Mean_Model", ], aes(x = inp, y = Value, color = "Average Prediction"), size = 1.5) +
+          labs(
+            title = "Lasso Regression, Lambda = 0.08",
+            x = "x",
+            y = "y",
+            color = NULL  # Remove the legend title
+          ) +
+          theme_minimal() +
+          theme(
+            legend.position = "top",  # Position the legend to the top
+            legend.title = element_blank(),  # Remove the legend title
+            legend.text = element_text(size = 8),  # Make legend text smaller
+            legend.key.size = unit(0.5, "lines")  # Make legend keys smaller
+          ) +
+          scale_color_manual(values = c("Average Prediction" = "orange", "Predictions" = "pink", "True Form" = "black"))
+        
+        print(plot_predictions)
+      })
       #####
       #
       #
@@ -2830,6 +3388,7 @@ server <- function(input, output, session) {
       # Add Classification server logic here
       # ...
       
+      library(mvtnorm)
       
       # Reactive data generation
       df <- reactive({
