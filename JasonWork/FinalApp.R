@@ -3628,6 +3628,8 @@ server <- function(input, output, session) {
           control = rpart.control(maxdepth = depth, minbucket = minbucket_value, cp = 0, xval = 0), # No pruning, no cross-validation
           method = "class"             # For classification
         )
+        install.packages("rpart")
+        install.packages("rpart.plot")
         
         # Plot the decision tree
         rpart.plot(tree_model, main = paste("Decision Tree with Depth =", depth))
