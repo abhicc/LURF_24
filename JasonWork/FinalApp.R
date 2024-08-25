@@ -1,6 +1,8 @@
 library(shiny)
 library(glmnet)
 library(rpart)
+library(rpart.plot)
+
 
 ui <- fluidPage(
   titlePanel("BIAS-VARIANCE TRADEOFF VISUALIZATION"),
