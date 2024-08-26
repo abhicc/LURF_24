@@ -291,10 +291,7 @@ server <- function(input, output, session) {
       output$tab1_plot1 <- renderPlot({
         df_data <- df()$toy_data
         
-        if (is.null(df_data)) {
-          plot(1, type = "n", main = "No Data Available")
-          return(NULL)
-        }
+       
         
         p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
           geom_point() +
@@ -430,10 +427,7 @@ server <- function(input, output, session) {
         df_data <- df()$toy_data
         df_testdata <- df()$test_data
         
-        if (is.null(df_data) || is.null(df_testdata)) {
-          plot(1, type = "n", main = "No Data Available")
-          return(NULL)
-        }
+       
         
         # Initialize a data frame to store bias and variance for different complexities/k values
         metrics <- data.frame(
@@ -903,10 +897,7 @@ server <- function(input, output, session) {
       output$tab2_plot1 <- renderPlot({
         df_data <- df()$toy_data
         
-        if (is.null(df_data)) {
-          plot(1, type = "n", main = "No Data Available")
-          return(NULL)
-        }
+        
         
         p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
           geom_point() +
@@ -1044,10 +1035,7 @@ server <- function(input, output, session) {
         df_data <- df()$toy_data
         df_testdata <- df()$test_data
         
-        if (is.null(df_data) || is.null(df_testdata)) {
-          plot(1, type = "n", main = "No Data Available")
-          return(NULL)
-        }
+       
         
         # Initialize a data frame to store bias and variance for different complexities/k values
         metrics <- data.frame(
@@ -1668,10 +1656,7 @@ server <- function(input, output, session) {
         df_data <- df()$toy_data
         df_testdata <- df()$test_data
         
-        if (is.null(df_data) || is.null(df_testdata)) {
-          plot(1, type = "n", main = "No Data Available")
-          return(NULL)
-        }
+       
         
         # Initialize a data frame to store bias and variance for different complexities/k values
         metrics <- data.frame(
@@ -3381,6 +3366,14 @@ server <- function(input, output, session) {
                    fluidRow(
                      column(7, plotOutput("tab31_plot1"))
                    )
+          ),
+          tabPanel("Neural Network",
+                   sliderInput("node", "Number of Nodes in Hidden Layer", 
+                               min = 1, max = 10, value = 5, step = 1),
+                   fluidRow(
+                     column(5, plotOutput("tab44_plot1")),
+                     column(5, plotOutput("tab44_plot2"))
+                   )
           )
         )
       })
@@ -3389,6 +3382,7 @@ server <- function(input, output, session) {
       # ...
       
       library(mvtnorm)
+      library(nnet)
       
       # Reactive data generation
       df <- reactive({
@@ -3744,6 +3738,104 @@ server <- function(input, output, session) {
           scale_color_manual(values = c("blue", "red"), name = "Actual") +
           theme_minimal() +  
           theme(legend.position = "top")
+      })
+      
+      
+      
+      output$tab44_plot1 <- renderPlot({
+        data_list <- df()
+        train_data <- data_list$training_data
+        
+        # Selecting the first replicated training set for simplicity
+        x_train <- data.frame(x1 = train_data$x1[,1], x2 = train_data$x2[,1], y = train_data$y[,1])
+        x_train$y <- as.numeric(as.character(x_train$y))  # Ensure y is numeric (0 and 1)
+        
+        # Generate a grid of values for x1 and x2
+        x1_range <- seq(min(x_train$x1) - 1, max(x_train$x1) + 1, length.out = 100)
+        x2_range <- seq(min(x_train$x2) - 1, max(x_train$x2) + 1, length.out = 100)
+        grid <- expand.grid(x1 = x1_range, x2 = x2_range)
+        
+        model <- nnet(y ~ x1 + x2, data = x_train, size = input$node, 
+                      linout = FALSE, decay = 0.01, maxit = 1000)
+        
+        # Predict on the grid
+        grid$prob <- predict(model, newdata = grid)
+        
+        # Convert predictions to class labels for plotting
+        grid$prediction <- as.factor(ifelse(grid$prob > 0.5, "1", "0"))
+        
+        # Plot
+        ggplot() +
+          geom_tile(data = grid, aes(x = x1, y = x2, fill = prediction), alpha = 0.3) +
+          geom_point(data = x_train, aes(x = x1, y = x2, color = as.factor(y)), size = 2) +
+          labs(title = "Neural Network Decision Boundary",
+               x = "X1", y = "X2") +
+          scale_fill_manual(values = c("blue", "red"), name = "Prediction") +
+          scale_color_manual(values = c("blue", "red"), name = "Actual") +
+          theme_minimal() +  
+          theme(legend.position = "top")
+      })
+      
+      output$tab44_plot2 <- renderPlot({
+        data_list <- df()
+        test_data <- data_list$test_data
+        x_test <- test_data[, c("x1", "x2")]
+        y_test <- test_data$y_orig
+        
+        # Range of number of nodes
+        node_values <- seq(1, 10, by = 1)
+        avg_test_errors <- numeric(length(node_values))
+        avg_train_errors <- numeric(length(node_values))
+        
+        # Loop through each number of nodes
+        for (nodes in node_values) {
+          test_errors <- numeric(ncol(data_list$training_data$x1))
+          train_errors <- numeric(ncol(data_list$training_data$x1))
+          
+          # Loop through each replicated training set
+          for (i in 1:ncol(data_list$training_data$x1)) {
+            # Extract training data for the current replication
+            x_train <- data.frame(x1 = data_list$training_data$x1[, i], x2 = data_list$training_data$x2[, i])
+            y_train <- factor(data_list$training_data$y[, i])  # Ensure y_train is a factor
+            
+            # Fit the neural network model using the 'nnet' package
+            model <- nnet(y_train ~ x1 + x2, data = x_train, size = nodes, 
+                          linout = FALSE, decay = 0.01, maxit = 1000)
+            
+            # Predict on test data
+            grid <- data.frame(x1 = x_test[, "x1"], x2 = x_test[, "x2"])
+            test_pred_prob <- predict(model, newdata = grid, type = "raw")
+            test_pred <- ifelse(test_pred_prob > 0.5, "1", "0")
+            test_errors[i] <- mean(test_pred != y_test, na.rm = TRUE)
+            
+            # Predict on training data
+            train_pred_prob <- predict(model, newdata = x_train, type = "raw")
+            train_pred <- ifelse(train_pred_prob > 0.5, "1", "0")
+            train_errors[i] <- mean(train_pred != y_train, na.rm = TRUE)
+          }
+          
+          # Compute average errors for current number of nodes
+          avg_test_errors[which(node_values == nodes)] <- mean(test_errors, na.rm = TRUE)
+          avg_train_errors[which(node_values == nodes)] <- mean(train_errors, na.rm = TRUE)
+        }
+        
+        # Create data frame for plotting
+        error_df <- data.frame(
+          nodes = rep(node_values, 2),
+          avg_error = c(avg_test_errors, avg_train_errors),
+          error_type = rep(c("Test Error", "Training Error"), each = length(node_values))
+        )
+        
+        # Plot average error vs number of nodes using a line graph
+        ggplot(error_df, aes(x = nodes, y = avg_error, color = error_type)) +
+          geom_line(size = 1) +  # Line graph for both error types
+          geom_point(size = 2) +  # Points for both error types
+          labs(title = "Test and Training Error vs Number of Nodes",
+               x = "Number of Nodes",
+               y = "Error Rate") +
+          theme_minimal() +
+          scale_color_manual(values = c("blue", "red")) +
+          theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
       })
       
       
