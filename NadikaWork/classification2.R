@@ -1,92 +1,82 @@
-
 library(shiny)
 library(ggplot2)
-library(mvtnorm)
+library(e1071)
 
-# Define UI
+# Example data generation function
+generate_data <- function() {
+  set.seed(123)
+  
+  # Generate training data
+  x_train <- matrix(rnorm(200 * 2), ncol = 2)
+  y_train <- ifelse(x_train[, 1] * x_train[, 2] > 0, 1, 0)
+  
+  # Generate test data
+  x_test <- matrix(rnorm(100 * 2), ncol = 2)
+  y_test <- ifelse(x_test[, 1] * x_test[, 2] > 0, 1, 0)
+  
+  return(list(
+    training_data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y = y_train),
+    test_data = data.frame(x1 = x_test[, 1], x2 = x_test[, 2], y_orig = y_test)
+  ))
+}
+
+# Define the UI
 ui <- fluidPage(
-  titlePanel("Logistic Regression Model Visualization"),
+  titlePanel("SVM Decision Boundary with Margins"),
   
   sidebarLayout(
     sidebarPanel(
-      width = 3,
-      
-      sliderInput("num_ob", "Number of observations",
-                  min = 100, max = 200, value = 100, step = 50),
-      
-      sliderInput("epsilon", "Variability",
-                  min = 0.2, max = 0.8, value = 0.4, step = 0.2)
+      sliderInput("c_param", "Regularization Parameter (C)",
+                  min = 0.01, max = 3, value = 1, step = 0.01)
     ),
     
     mainPanel(
-      fluidRow(
-        column(7, plotOutput("logistic_plot"))
-      )
+      plotOutput("svm_plot")
     )
   )
 )
 
-# Define server logic
-server <- function(input, output, session) {
+# Define the server logic
+server <- function(input, output) {
   
-  # Reactive data generation
-  df <- reactive({
-    set.seed(123)
-    
-    num_training_points <- input$num_ob
-    noise <- input$epsilon
-    
-    mu_class0 <- c(1, -1)
-    mu_class1 <- c(-1, 1)
-    cov_mat <- matrix(c(1,0,0,1), nrow=2, ncol=2)
-    means_class0 <- rmvnorm(n = 10, mean = mu_class0, sigma = cov_mat)
-    means_class1 <- rmvnorm(n = 10, mean = mu_class1, sigma = cov_mat)
-    
-    training_obs_class0 <- matrix(nrow=num_training_points/2, ncol=2)
-    training_obs_class1 <- matrix(nrow=num_training_points/2, ncol=2)
-    for(i in 1:(num_training_points/2)) {
-      s <- sample(1:10, size = 1, prob = rep(1/10, 10))
-      training_obs_class0[i,] <- rmvnorm(n = 1, mean = means_class0[s,],
-                                         sigma = matrix(c(noise,0,0,noise), nrow=2, ncol=2))
-      
-      s <- sample(1:10, size = 1, prob = rep(1/10, 10))
-      training_obs_class1[i,] <- rmvnorm(n = 1, mean = means_class1[s,],
-                                         sigma = matrix(c(noise,0,0,noise), nrow=2, ncol=2))
-    }
-    data <- data.frame(rbind(training_obs_class0, training_obs_class1), 
-                       y = factor(rep(c("0", "1"), each=num_training_points/2), 
-                                  levels = c("0", "1")))
-    names(data) <- c("x1", "x2", "y")
-    data
-  })
-  
-  output$logistic_plot <- renderPlot({
-    data <- df()
-    
-    # Fit logistic regression model
-    logit_model <- glm(y ~ x1 + x2, data = data, family = binomial)
+  output$svm_plot <- renderPlot({
+    data_list <- generate_data()
+    train_data <- data_list$training_data
     
     # Generate a grid of values for x1 and x2
-    x1_range <- seq(min(data$x1) - 1, max(data$x1) + 1, length.out = 100)
-    x2_range <- seq(min(data$x2) - 1, max(data$x2) + 1, length.out = 100)
+    x1_range <- seq(min(train_data$x1) - 1, max(train_data$x1) + 1, length.out = 100)
+    x2_range <- seq(min(train_data$x2) - 1, max(train_data$x2) + 1, length.out = 100)
     grid <- expand.grid(x1 = x1_range, x2 = x2_range)
     
-    # Predict on the grid
-    grid$pred <- predict(logit_model, newdata = grid, type = "response")
-    grid$prediction <- as.factor(ifelse(grid$pred > 0.5, "1", "0"))
+    # Fit the SVM model with a linear kernel
+    svm_model <- svm(y ~ x1 + x2, data = train_data, kernel = "linear", cost = input$c_param)
     
-    # Plot the decision boundary
-    ggplot(data) +
+    # Predict on the grid
+    grid$pred <- predict(svm_model, newdata = grid, decision.values = TRUE)
+    decision_values <- attributes(predict(svm_model, grid, decision.values = TRUE))$decision.values
+    
+    # Convert predictions to class labels for plotting
+    grid$prediction <- as.factor(ifelse(grid$pred > 0, 1, 0))
+    
+    # Extract support vectors
+    support_vectors <- train_data[svm_model$index, ]
+    
+    # Plot the decision boundary with margins
+    ggplot() +
       geom_tile(data = grid, aes(x = x1, y = x2, fill = prediction), alpha = 0.3) +
-      geom_point(aes(x = x1, y = x2, color = y), size = 2) +
-      labs(title = "Logistic Regression Decision Boundary",
+      geom_point(data = train_data, aes(x = x1, y = x2, color = as.factor(y)), size = 2) +
+      geom_point(data = support_vectors, aes(x = x1, y = x2), shape = 1, size = 4, color = "black") +
+      geom_contour(data = grid, aes(x = x1, y = x2, z = decision_values), 
+                   breaks = c(-1, 0, 1), linetype = "dashed", color = "black") +
+      labs(title = "SVM Decision Boundary with Margins",
            x = "X1", y = "X2") +
       scale_fill_manual(values = c("blue", "red"), name = "Prediction") +
       scale_color_manual(values = c("blue", "red"), name = "Actual") +
-      theme_minimal() +
+      theme_minimal() +  
       theme(legend.position = "top")
   })
 }
 
 # Run the application
 shinyApp(ui = ui, server = server)
+
