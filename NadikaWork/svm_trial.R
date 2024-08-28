@@ -3377,7 +3377,7 @@ server <- function(input, output, session) {
                    )
           ),
           tabPanel("Support Vector Machine (SVM)",
-                   sliderInput("Regularization Parameter (C)", "Regularization Parameter (C)",
+                   sliderInput("c_param", "Regularization Parameter (C)",
                                min = 0.01, max = 3, value = 1, step = 0.01),
                    
                    fluidRow(
@@ -3401,7 +3401,7 @@ server <- function(input, output, session) {
         num_test_points <- 500
         noise <- input$epsilon
         num_rep_sets <- 50
-        
+        cost <- input$cost_value
         
         
         
@@ -3850,45 +3850,53 @@ server <- function(input, output, session) {
           theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
       })
       
+      library(ggplot2)
+      library(e1071)
       
       output$tab51_plot1 <- renderPlot({
-        data <- df()
+        data_list <- df()
         test_data <- data_list$test_data
-        x_test <- test_data[, c("x1", "x2")]
+        x_test <- test_data[, 1:2]
         y_test <- test_data$y_orig
         
-        # Fit SVM model with a linear kernel and regularization parameter C
-        svm_model <- svm(y ~ x1 + x2, data = data, kernel = "linear", 
-                         probability = TRUE, cost = input$c_param)
+        # Get the first replicated training set
+        x_train <- cbind(data_list$training_data$x1[, 1], data_list$training_data$x2[, 1])
+        y_train <- as.factor(data_list$training_data$y[, 1])
+        
+        # Set a default cost value if input$c_param is NULL
+        c_param <- ifelse(is.null(input$c_param), 1, input$c_param)
+        
+        # Fit the SVM model with a linear kernel and specified cost
+        svm_model <- svm(y_train ~ x1 + x2, data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y_train),
+                         kernel = "linear", cost = c_param, scale = FALSE)
         
         # Generate a grid of values for x1 and x2
-        x1_range <- seq(min(data$x1) - 1, max(data$x1) + 1, length.out = 100)
-        x2_range <- seq(min(data$x2) - 1, max(data$x2) + 1, length.out = 100)
+        x1_range <- seq(min(c(x_train[, 1], x_test[, 1])) - 1, max(c(x_train[, 1], x_test[, 1])) + 1, length.out = 100)
+        x2_range <- seq(min(c(x_train[, 2], x_test[, 2])) - 1, max(c(x_train[, 2], x_test[, 2])) + 1, length.out = 100)
         grid <- expand.grid(x1 = x1_range, x2 = x2_range)
         
         # Predict on the grid
-        grid$pred <- predict(svm_model, newdata = grid, decision.values = TRUE)
+        grid$decision_boundary <- predict(svm_model, grid, decision.values = TRUE)
+        grid$decision_boundary <- attr(grid$decision_boundary, "decision.values")
         
-        # Extract the support vectors
-        support_vectors <- data[svm_model$index, ]
-        
-        # Extract decision values for plotting margins
-        decision_values <- attributes(predict(svm_model, grid, decision.values = TRUE))$decision.values
-        
-        # Plot the decision boundary with margin
-        ggplot(data) +
-          geom_tile(data = grid, aes(x = x1, y = x2, fill = as.factor(pred)), alpha = 0.3) +
-          geom_point(aes(x = x1, y = x2, color = y), size = 2) +
-          geom_point(data = support_vectors, aes(x = x1, y = x2), shape = 1, size = 4, color = "black") +
-          geom_contour(data = grid, aes(x = x1, y = x2, z = decision_values), 
-                       breaks = c(-1, 0, 1), linetype = "dashed", color = "black") +
-          labs(title = paste("SVM Decision Boundary (Linear Kernel) with C =", input$c_param),
+        # Plot decision boundary with margins and fill
+        ggplot() +
+          geom_tile(data = grid, aes(x = x1, y = x2, fill = decision_boundary > 0), alpha = 0.4) +
+          geom_contour(data = grid, aes(x = x1, y = x2, z = decision_boundary), breaks = 0, color = "black", size = 1.5) +
+          geom_contour(data = grid, aes(x = x1, y = x2, z = decision_boundary), breaks = c(-1, 1), linetype = "dashed", color = "black", size = 0.7) +
+          geom_point(data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y_orig = y_train),
+                     aes(x = x1, y = x2, color = y_orig), size = 2) +
+          geom_point(data = data.frame(x1 = x_train[svm_model$index, 1], x2 = x_train[svm_model$index, 2]), 
+                     aes(x = x1, y = x2), shape = 21, size = 3, fill = "black") +
+          labs(title = paste("SVM Decision Boundary (Linear Kernel) with C =", c_param),
                x = "X1", y = "X2") +
-          scale_fill_manual(values = c("blue", "red"), name = "Prediction") +
+          scale_fill_manual(values = c("lightblue", "lightpink"), name = "Prediction", labels = c("FALSE", "TRUE")) +
           scale_color_manual(values = c("blue", "red"), name = "Actual") +
           theme_minimal() +
           theme(legend.position = "top")
       })
+      
+      
       
       
       

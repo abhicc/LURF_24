@@ -1,3 +1,4 @@
+
 library(shiny)
 library(glmnet)
 library(rpart)
@@ -167,7 +168,7 @@ server <- function(input, output, session) {
           tabPanel("LASSO Regression",
                    
                    sliderInput("lambda", "Lambda", 
-                              min = 0, max = 0.14, value = 0.04, step = 0.02),
+                               min = 0, max = 0.14, value = 0.04, step = 0.02),
                    checkboxInput("show_tab5_plot5", "Show True Model vs. Prediction Graphs", value = FALSE),
                    fluidRow(
                      column(3, plotOutput("tab5_plot1")),
@@ -291,7 +292,7 @@ server <- function(input, output, session) {
       output$tab1_plot1 <- renderPlot({
         df_data <- df()$toy_data
         
-       
+        
         
         p <- ggplot(data = df_data, aes(x = inp, y = response1)) + 
           geom_point() +
@@ -427,7 +428,7 @@ server <- function(input, output, session) {
         df_data <- df()$toy_data
         df_testdata <- df()$test_data
         
-       
+        
         
         # Initialize a data frame to store bias and variance for different complexities/k values
         metrics <- data.frame(
@@ -1035,7 +1036,7 @@ server <- function(input, output, session) {
         df_data <- df()$toy_data
         df_testdata <- df()$test_data
         
-       
+        
         
         # Initialize a data frame to store bias and variance for different complexities/k values
         metrics <- data.frame(
@@ -1656,7 +1657,7 @@ server <- function(input, output, session) {
         df_data <- df()$toy_data
         df_testdata <- df()$test_data
         
-       
+        
         
         # Initialize a data frame to store bias and variance for different complexities/k values
         metrics <- data.frame(
@@ -2746,7 +2747,7 @@ server <- function(input, output, session) {
       })
       
       
-  
+      
       
       
       output$tab5_plot2 <- renderPlot({
@@ -2912,7 +2913,7 @@ server <- function(input, output, session) {
         print(plot_Variance)
       })
       
-
+      
       
       
       output$tab5_plot4 <- renderPlot({
@@ -3327,7 +3328,7 @@ server <- function(input, output, session) {
       
       
       
-      } else if (input$app_choice == "Classification") {
+    } else if (input$app_choice == "Classification") {
       # Logic for Classification UI
       output$app_ui <- renderUI({
         tagList(
@@ -3374,6 +3375,14 @@ server <- function(input, output, session) {
                      column(5, plotOutput("tab44_plot1")),
                      column(5, plotOutput("tab44_plot2"))
                    )
+          ),
+          tabPanel("Support Vector Machine (SVM)",
+                   sliderInput("c_param", "Regularization Parameter (C)",
+                               min = 0.01, max = 3, value = 1, step = 0.01),
+                   
+                   fluidRow(
+                     column(7, plotOutput("tab51_plot1"))
+                   )
           )
         )
       })
@@ -3392,6 +3401,9 @@ server <- function(input, output, session) {
         num_test_points <- 500
         noise <- input$epsilon
         num_rep_sets <- 50
+        cost <- input$cost_value
+        
+        
         
         # Generating bivariate normal meta-means and 10 component means for each class
         mu_class0 <- c(1, -1)
@@ -3622,7 +3634,7 @@ server <- function(input, output, session) {
           control = rpart.control(maxdepth = depth, minbucket = minbucket_value, cp = 0, xval = 0), # No pruning, no cross-validation
           method = "class"             # For classification
         )
-      
+        
         
         # Plot the decision tree
         rpart.plot(tree_model, main = paste("Decision Tree with Depth =", depth))
@@ -3837,6 +3849,54 @@ server <- function(input, output, session) {
           scale_color_manual(values = c("blue", "red")) +
           theme(legend.position = "top", legend.title = element_blank())  # Remove the legend title
       })
+      
+      library(ggplot2)
+      library(e1071)
+      
+      output$tab51_plot1 <- renderPlot({
+        data_list <- df()
+        test_data <- data_list$test_data
+        x_test <- test_data[, 1:2]
+        y_test <- test_data$y_orig
+        
+        # Get the first replicated training set
+        x_train <- cbind(data_list$training_data$x1[, 1], data_list$training_data$x2[, 1])
+        y_train <- as.factor(data_list$training_data$y[, 1])
+        
+        # Set a default cost value if input$c_param is NULL
+        c_param <- ifelse(is.null(input$c_param), 1, input$c_param)
+        
+        # Fit the SVM model with a linear kernel and specified cost
+        svm_model <- svm(y_train ~ x1 + x2, data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y_train),
+                         kernel = "linear", cost = c_param, scale = FALSE)
+        
+        # Generate a grid of values for x1 and x2
+        x1_range <- seq(min(c(x_train[, 1], x_test[, 1])) - 1, max(c(x_train[, 1], x_test[, 1])) + 1, length.out = 100)
+        x2_range <- seq(min(c(x_train[, 2], x_test[, 2])) - 1, max(c(x_train[, 2], x_test[, 2])) + 1, length.out = 100)
+        grid <- expand.grid(x1 = x1_range, x2 = x2_range)
+        
+        # Predict on the grid
+        grid$decision_boundary <- predict(svm_model, grid, decision.values = TRUE)
+        grid$decision_boundary <- attr(grid$decision_boundary, "decision.values")
+        
+        # Plot decision boundary with margins and fill
+        ggplot() +
+          geom_tile(data = grid, aes(x = x1, y = x2, fill = decision_boundary > 0), alpha = 0.4) +
+          geom_contour(data = grid, aes(x = x1, y = x2, z = decision_boundary), breaks = 0, color = "black", size = 1.5) +
+          geom_contour(data = grid, aes(x = x1, y = x2, z = decision_boundary), breaks = c(-1, 1), linetype = "dashed", color = "black", size = 0.7) +
+          geom_point(data = data.frame(x1 = x_train[, 1], x2 = x_train[, 2], y_orig = y_train),
+                     aes(x = x1, y = x2, color = y_orig), size = 2) +
+          geom_point(data = data.frame(x1 = x_train[svm_model$index, 1], x2 = x_train[svm_model$index, 2]), 
+                     aes(x = x1, y = x2), shape = 21, size = 3, fill = "black") +
+          labs(title = paste("SVM Decision Boundary (Linear Kernel) with C =", c_param),
+               x = "X1", y = "X2") +
+          scale_fill_manual(values = c("lightblue", "lightpink"), name = "Prediction", labels = c("FALSE", "TRUE")) +
+          scale_color_manual(values = c("blue", "red"), name = "Actual") +
+          theme_minimal() +
+          theme(legend.position = "top")
+      })
+      
+      
       
       
       
